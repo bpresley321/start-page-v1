@@ -1,0 +1,8 @@
+{
+  "name": "start-page",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Personal start page: links, tasks, live weather and news. No dependencies.",
+  "scripts": { "test": "node --test test/*.test.js" },
+  "engines": { "node": ">=20" }
+}

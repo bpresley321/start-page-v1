@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Start Page</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: masonry of link cards in 3 to 4 columns, tasks first, edit mode reveals all controls. */
+:root{
+  --bg:#e9eef0; --panel:#ffffff; --ink:#15202a; --muted:#5b6a77; --line:#d8e0e5;
+  --accent:#0f6b62; --accent-ink:#ffffff; --accent-soft:#dcefec; --warn:#b3261e;
+  --display:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif;
+  --body:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f161c; --panel:#18222a; --ink:#e6edf2; --muted:#93a3b0; --line:#2a3741;
+    --accent:#4fc4b4; --accent-ink:#0b1512; --accent-soft:#17342f; --warn:#f2877f; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f161c; --panel:#18222a; --ink:#e6edf2; --muted:#93a3b0; --line:#2a3741;
+  --accent:#4fc4b4; --accent-ink:#0b1512; --accent-soft:#17342f; --warn:#f2877f; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:var(--fs,15px);line-height:1.35}
+body[data-size="small"]{--fs:13px;--pad:2px}
+body[data-size="xsmall"]{--fs:12px;--pad:1px}
+body[data-size="large"]{--fs:17px;--pad:8px}
+a{color:inherit;text-decoration:none}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.wrap{max-width:1400px;margin:0 auto;padding:16px 16px 56px}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;margin-bottom:16px}
+.who{flex:1 1 240px;min-width:0}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(24px,4vw,34px);margin:0;letter-spacing:-.02em}
+.sub{color:var(--muted);font-variant-numeric:tabular-nums}
+.search{display:flex;gap:8px;flex:1 1 260px;max-width:420px}
+.search input{flex:1;min-width:0}
+.tools{display:flex;gap:8px;flex-wrap:wrap}
+input[type=text],input[type=search],input:not([type]),select,textarea{padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.btn{padding:9px 14px;border:1px solid var(--line);border-radius:10px;background:var(--panel);cursor:pointer;font-weight:500}
+.btn:hover{border-color:var(--accent)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.danger{color:var(--warn)}
+.btn.sm{padding:4px 10px;font-size:13px}
+
+/* masonry: at least 3 columns from tablet width up */
+.cols{column-count:1;column-gap:16px}
+@media (min-width:480px){.cols{column-count:2}}
+@media (min-width:700px){.cols{column-count:3}}
+@media (min-width:1050px){.cols{column-count:4}}
+@media (min-width:700px){[data-cols="3"] .cols{column-count:3}}
+@media (min-width:1050px){[data-cols="4"] .cols{column-count:4}}
+@media (min-width:1050px){[data-cols="5"] .cols{column-count:5}}
+.card{break-inside:avoid;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin:0 0 16px;display:inline-block;width:100%}
+.card h2{font-family:var(--display);font-size:1.2em;font-weight:700;margin:0 0 10px;display:flex;align-items:center;gap:8px;justify-content:space-between}
+.card h2 .gname{flex:1;min-width:0;font:700 16px var(--display);padding:5px 8px}
+.ll{list-style:none;margin:0;padding:0}
+.ll li{display:flex;align-items:center;gap:4px;border-radius:8px}
+.ll li a{flex:1;min-width:0;display:flex;align-items:center;gap:10px;padding:var(--pad,6px) 6px;border-radius:8px}
+.ll li a:hover{background:var(--accent-soft)}
+.ll li a span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tile{flex:none;width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font:700 11px var(--display);color:#fff}
+.x{border:0;background:none;color:var(--muted);cursor:pointer;font-size:18px;line-height:1;padding:2px 8px;border-radius:6px}
+.x:hover{color:var(--warn)}
+.empty{color:var(--muted);font-size:13px;padding:4px 6px}
+.edit-only{display:none!important}
+.editing .edit-only{display:block!important}
+.editing .edit-only.flex,.editing .gtools.edit-only{display:flex!important}
+.editing .addlink.edit-only{display:grid!important}
+.editing .card.edit-only{display:inline-block!important}
+.editing .view-only{display:none!important}
+.addlink{display:grid;grid-template-columns:1fr;gap:6px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+.addlink input{width:100%}
+.gtools{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.city{display:flex;gap:6px;margin:0 0 10px}
+.city input{flex:1;min-width:0}
+
+/* tasks */
+.add{display:flex;gap:6px;margin-bottom:8px}
+.add input{flex:1;min-width:0}
+.prog{display:flex;align-items:center;gap:10px;margin-bottom:8px;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.bar{flex:1;height:8px;border-radius:99px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+.todos{list-style:none;margin:0;padding:0}
+.todos li{display:flex;align-items:center;gap:10px;padding:6px 2px}
+.todos input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);flex:none}
+.todos label{flex:1;min-width:0;overflow-wrap:anywhere}
+.todos li.done label{text-decoration:line-through;color:var(--muted)}
+
+/* panels */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-start;justify-content:center;padding:56px 16px 16px;overflow:auto;z-index:10}
+.scrim.open{display:flex}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;width:100%;max-width:460px;display:flex;flex-direction:column;gap:12px}
+.panel h3{font-family:var(--display);margin:0;font-size:20px}
+.panel label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+.panel label input,.panel label select,.panel label textarea{color:var(--ink);font-size:15px}
+.panel textarea{min-height:110px;font:12px ui-monospace,Menlo,monospace}
+.row{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.status{font-size:12.5px;color:var(--muted)}
+
+.wx-now{display:flex;align-items:center;gap:14px;margin-bottom:10px}
+.wx-temp{font-family:var(--display);font-size:2.8em;font-weight:700;line-height:1;letter-spacing:-.03em}
+.wx-meta{color:var(--muted)}.wx-meta b{color:var(--ink)}
+.forecast{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;text-align:center;font-size:.9em;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
+.forecast div{display:flex;flex-direction:column;gap:2px;align-items:center}.forecast b{color:var(--ink);font-variant-numeric:tabular-nums}.forecast small{font-size:.8em}
+.tag{font:500 11px var(--body);color:var(--accent);background:var(--accent-soft);padding:2px 8px;border-radius:99px}
+.news{list-style:none;margin:0;padding:0}.news li{padding:7px 0;border-bottom:1px solid var(--line)}.news li:last-child{border:0}
+.news a{display:block;font-weight:500;text-wrap:balance}.news a:hover{color:var(--accent)}.news small{color:var(--muted);font-size:.82em}
+</style>
+</head>
+<body data-cols="auto" data-size="medium">
+<div class="wrap" id="app">
+  <header>
+    <div class="who">
+      <h1 id="greet">Start page</h1>
+      <div class="sub" id="clock"></div>
+    </div>
+    <form class="search" id="search" role="search">
+      <input id="q" type="search" placeholder="Search the web" aria-label="Search the web">
+      <button class="btn pri" type="submit">Search</button>
+    </form>
+    <div class="tools">
+      <button class="btn" id="btn-add" type="button">+ Link</button>
+      <button class="btn" id="btn-edit" type="button" aria-pressed="false">Edit</button>
+      <button class="btn" id="btn-set" type="button">Settings</button>
+    </div>
+  </header>
+  <main class="cols" id="cols"></main>
+</div>
+
+<!-- quick add link -->
+<div class="scrim" id="sc-add">
+  <form class="panel" id="f-add">
+    <h3>Add a link</h3>
+    <label for="a-title">Name<input id="a-title" type="text" autocomplete="off" placeholder="Fort Worth Star-Telegram"></label>
+    <label for="a-url">Address<input id="a-url" type="text" autocomplete="off" placeholder="star-telegram.com"></label>
+    <label for="a-group">Group<select id="a-group"></select></label>
+    <label for="a-new" id="a-new-wrap" hidden>New group name<input id="a-new" type="text" autocomplete="off"></label>
+    <div class="status" id="a-err" role="alert"></div>
+    <div class="row"><button type="button" class="btn" data-close>Cancel</button><button class="btn pri" type="submit">Add link</button></div>
+  </form>
+</div>
+
+<!-- settings -->
+<div class="scrim" id="sc-set">
+  <div class="panel">
+    <h3>Settings</h3>
+    <label for="s-city">City for weather links<input id="s-city" type="text" autocomplete="off" placeholder="Fort Worth, TX"></label>
+    <label for="s-cols">Columns<select id="s-cols"><option value="auto">Automatic (3 or 4)</option><option value="3">Always 3</option><option value="4">Always 4</option><option value="5">5 on wide screens</option></select></label>
+    <label for="s-size">Text size<select id="s-size"><option value="xsmall">Extra small</option><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select></label>
+    <label for="s-io">Backup (copy this text to save, paste to restore)<textarea id="s-io" spellcheck="false"></textarea></label>
+    <div class="row">
+      <button type="button" class="btn" id="s-copy">Copy backup</button>
+      <button type="button" class="btn" id="s-import">Restore from text</button>
+    </div>
+    <div class="status" id="s-status" role="status"></div>
+    <div class="row"><button type="button" class="btn pri" data-close>Done</button></div>
+  </div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const uid=()=>Math.random().toString(36).slice(2,9);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function L(t,u){return {id:uid(),t,u};}
+function defaults(){
+  return {
+    city:'Fort Worth, TX', cols:'auto', size:'medium', name:'Ben',
+    tasks:[{id:uid(),t:'Find birth certificates',done:false}],
+    groups:[
+      {id:uid(),name:'Popular',links:[L('Gmail','https://mail.google.com'),L('YouTube','https://www.youtube.com'),L('Reddit','https://www.reddit.com'),L('Facebook','https://www.facebook.com'),L('Google Sheets','https://docs.google.com/spreadsheets'),L('Google Docs','https://docs.google.com/document'),L('Google Calendar','https://calendar.google.com'),L('Google Maps','https://maps.google.com')]},
+      {id:uid(),name:'News',links:[L('New York Times','https://www.nytimes.com'),L('Local news near you','https://news.google.com/search?q={city}'),L('NPR','https://www.npr.org'),L('AP News','https://apnews.com'),L('Hacker News','https://news.ycombinator.com')]},
+      {id:uid(),name:'Weather links',links:[L('Forecast for your city','https://www.google.com/search?q=weather+{city}'),L('National Weather Service','https://forecast.weather.gov/zipcity.php?inputstring={city}'),L('Weather on timeanddate','https://www.timeanddate.com/weather/?query={city}'),L('National radar','https://radar.weather.gov'),L('Storm Prediction Center','https://www.spc.noaa.gov'),L('National Hurricane Center','https://www.nhc.noaa.gov')]},
+      {id:uid(),name:'Outdoors',links:[L('REI','https://www.rei.com'),L('Recreation.gov','https://www.recreation.gov'),L('AllTrails','https://www.alltrails.com'),L('Hipcamp','https://www.hipcamp.com')]},
+      {id:uid(),name:'Productivity',links:[L('Google Drive','https://drive.google.com'),L('GitHub','https://github.com'),L('Claude','https://claude.ai')]}
+    ]
+  };
+}
+const WEBCAMS='https://www.purgatory.ski/mountain/weather-conditions-webcams/';
+function webcamGroup(){ return {id:uid(),name:'Purgatory Webcams',links:[L('Base (Lift 1, looking south)',WEBCAMS),L('Village Plaza',WEBCAMS),L('Snow stake',WEBCAMS),L('Express summit (Lift 1, north)',WEBCAMS),L('Legends summit (Lift 8)',WEBCAMS)]}; }
+function migrate(){ if(!S.m1){ S.m1=true; if(!S.groups.some(g=>g.name==='Purgatory Webcams')) S.groups.push(webcamGroup()); save(); } }
+let S=defaults(), editing=false, dbDoc=null;
+try{ const raw=localStorage.getItem('startpage-v2'); if(raw) S=Object.assign(defaults(),JSON.parse(raw)); }catch(e){}
+
+/* ---------- saving ---------- */
+let saveTimer=null, writing=false, dirty=false, where='this browser only';
+function save(){
+  try{ localStorage.setItem('startpage-v2',JSON.stringify(S)); }catch(e){}
+  dirty=true; clearTimeout(saveTimer); saveTimer=setTimeout(flush,400);
+}
+async function flush(){
+  if(!dbDoc||writing||!dirty) return;
+  writing=true; dirty=false;
+  try{ await dbDoc.set({json:JSON.stringify(S)}); where='your account'; }catch(e){ where='this browser only'; }
+  writing=false; if(dirty) flush(); status();
+}
+function status(){ $('#s-status').textContent='Saved to '+where+'.'; }
+
+/* ---------- helpers ---------- */
+function normUrl(u){
+  u=u.trim(); if(!u) return null;
+  if(!/^https?:\/\//i.test(u)){ if(/^[a-z][a-z0-9+.-]*:/i.test(u) && !/^[^/]+:\d+/.test(u)) return null; u='https://'+u; }
+  try{ const x=new URL(u.replace(/\{city\}/g,'x')); return /^https?:$/.test(x.protocol)?u:null; }catch(e){ return null; }
+}
+function resolve(u){ return u.replace(/\{city\}/g,encodeURIComponent(S.city||'')); }
+function hue(s){ let h=0; for(const c of s) h=(h*31+c.charCodeAt(0))%360; return h; }
+function tile(l){
+  let host=''; try{ host=new URL(l.u.replace(/\{city\}/g,'x')).hostname.replace(/^www\./,''); }catch(e){}
+  const ch=(l.t.trim()[0]||host[0]||'?').toUpperCase();
+  return `<i class="tile" style="background:hsl(${hue(host||l.t)} 45% 38%)" aria-hidden="true">${esc(ch)}</i>`;
+}
+function findGroup(id){ return S.groups.find(g=>g.id===id); }
+
+/* ---------- render ---------- */
+function tasksCard(){
+  const d=S.tasks.filter(t=>t.done).length, n=S.tasks.length;
+  return `<section class="card" aria-labelledby="h-tasks"><h2 id="h-tasks">Tasks</h2>
+  <div class="prog"><span>${d} of ${n}</span><div class="bar"><i style="width:${n?d/n*100:0}%"></i></div></div>
+  <ul class="todos">${S.tasks.map(t=>`<li class="${t.done?'done':''}"><input type="checkbox" id="t-${t.id}" data-act="toggle" data-id="${t.id}" ${t.done?'checked':''}><label for="t-${t.id}">${esc(t.t)}</label><button class="x" data-act="deltask" data-id="${t.id}" aria-label="Delete task ${esc(t.t)}">×</button></li>`).join('')}</ul>
+  <form class="add" data-form="task" style="margin-top:8px"><input id="newtask" placeholder="New task" aria-label="New task" autocomplete="off"><button class="btn pri" type="submit">Add</button></form>
+  ${d?`<button class="btn sm" data-act="cleardone" type="button">Clear completed</button>`:''}
+  </section>`;
+}
+const NEWS=[['nyt','New York Times'],['fwreport','Fort Worth Report']];
+const cache={weather:null,news:{}};
+function ago(iso){ if(!iso) return ''; const m=Math.round((Date.now()-new Date(iso))/60000); if(m<1) return 'now'; if(m<60) return m+' min ago'; const h=Math.round(m/60); if(h<24) return h+' hr ago'; return Math.round(h/24)+' d ago'; }
+function weatherCard(){
+  const w=cache.weather;
+  let body='<div class="empty">Loading…</div>';
+  if(w&&w.error) body=`<div class="empty" role="alert">${esc(w.error)}</div>`;
+  else if(w) body=`<div class="wx-now"><div class="wx-temp">${w.now.temp}°</div><div class="wx-meta"><b>${esc(w.now.text)}</b><br>Feels ${w.now.feels}° · Wind ${w.now.wind} mph</div></div>
+    <div class="forecast">${w.days.map(d=>`<div><span>${new Date(d.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short'})}</span><b>${d.hi}°</b><span>${d.lo}°</span><small>${esc(d.text)}</small></div>`).join('')}</div>`;
+  return `<section class="card" aria-labelledby="h-wx"><h2 id="h-wx">Weather${w&&w.place?`<span class="tag">${esc(w.place)}</span>`:''}</h2>
+  <form class="city" data-form="city"><input id="city-input" value="${esc(S.city)}" aria-label="City" placeholder="City, State"><button class="btn sm" type="submit">Set city</button></form>${body}</section>`;
+}
+function newsCard(key,title){
+  const n=cache.news[key];
+  let body='<li class="empty">Loading…</li>';
+  if(n&&n.error) body=`<li class="empty" role="alert">${esc(n.error)} <button class="btn sm" data-act="retry-news" data-key="${key}" type="button">Retry</button></li>`;
+  else if(n) body=n.items.length?n.items.map(i=>`<li><a href="${esc(i.link)}" target="_blank" rel="noopener">${esc(i.title)}</a><small>${ago(i.time)}</small></li>`).join(''):'<li class="empty">No stories.</li>';
+  return `<section class="card" aria-label="${esc(title)}"><h2>${esc(title)}</h2><ul class="news">${body}</ul></section>`;
+}
+async function getJson(url){ const r=await fetch(url); const j=await r.json().catch(()=>({})); if(!r.ok) return {error:j.error||'Could not load'}; return j; }
+function softRender(){ const a=document.activeElement; if(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return; render(); }
+async function loadWeather(){ cache.weather=null; softRender(); cache.weather=await getJson('/api/weather?city='+encodeURIComponent(S.city||'')).catch(()=>({error:'Weather is unavailable right now'})); softRender(); }
+async function loadNews(key){ cache.news[key]=null; softRender(); cache.news[key]=await getJson('/api/news?feed='+key).catch(()=>({error:'Could not load this feed'})); softRender(); }
+function groupCard(g,i){
+  const links=g.links.map(l=>`<li><a href="${esc(resolve(l.u))}" target="_blank" rel="noopener">${tile(l)}<span>${esc(l.t)}</span></a><button class="x edit-only flex" data-act="dellink" data-g="${g.id}" data-id="${l.id}" aria-label="Remove ${esc(l.t)}">×</button></li>`).join('');
+  return `<section class="card" aria-label="${esc(g.name)}">
+  <h2><span class="view-only">${esc(g.name)}</span><input class="gname edit-only" data-act="rename" data-g="${g.id}" value="${esc(g.name)}" aria-label="Group name"></h2>
+  <ul class="ll">${links||'<li class="empty">No links yet.</li>'}</ul>
+  <form class="addlink edit-only" data-form="link" data-g="${g.id}"><input name="t" placeholder="Name" aria-label="Link name" autocomplete="off"><input name="u" placeholder="Address, like example.com" aria-label="Link address" autocomplete="off"><button class="btn sm pri" type="submit">Add link</button></form>
+  <div class="gtools edit-only" style="flex-wrap:wrap"><button class="btn sm" data-act="up" data-g="${g.id}" type="button" ${i===0?'disabled':''}>Move up</button><button class="btn sm" data-act="down" data-g="${g.id}" type="button" ${i===S.groups.length-1?'disabled':''}>Move down</button><button class="btn sm danger" data-act="delgroup" data-g="${g.id}" type="button">Delete group</button></div>
+  </section>`;
+}
+function render(){
+  document.body.dataset.cols=S.cols||'auto'; document.body.dataset.size=S.size||'medium';
+  $('#app').classList.toggle('editing',editing);
+  $('#btn-edit').textContent=editing?'Done':'Edit';
+  $('#btn-edit').classList.toggle('on',editing);
+  $('#btn-edit').setAttribute('aria-pressed',editing);
+  const addGroup=`<section class="card edit-only" aria-label="Add group"><h2>New group</h2><form class="add" data-form="group"><input id="newgroup" placeholder="Group name" aria-label="Group name" autocomplete="off"><button class="btn pri" type="submit">Add</button></form></section>`;
+  $('#cols').innerHTML=tasksCard()+weatherCard()+NEWS.map(n=>newsCard(n[0],n[1])).join('')+S.groups.map(groupCard).join('')+addGroup;
+}
+
+/* ---------- header ---------- */
+function tick(){
+  const n=new Date(), h=n.getHours();
+  $('#greet').textContent=(h<12?'Good morning':h<18?'Good afternoon':'Good evening')+(S.name?', '+S.name:'');
+  $('#clock').textContent=n.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})+' · '+n.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+}
+tick(); setInterval(tick,15000);
+$('#search').addEventListener('submit',e=>{
+  e.preventDefault(); const q=$('#q').value.trim(); if(!q) return;
+  const a=document.createElement('a'); a.href='https://duckduckgo.com/?q='+encodeURIComponent(q); a.target='_blank'; a.rel='noopener'; a.click();
+});
+
+/* ---------- actions ---------- */
+const root=$('#cols');
+root.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]'); if(!b) return;
+  const act=b.dataset.act, g=b.dataset.g?findGroup(b.dataset.g):null;
+  if(act==='toggle'){ const t=S.tasks.find(x=>x.id===b.dataset.id); t.done=b.checked; }
+  else if(act==='deltask'){ S.tasks=S.tasks.filter(x=>x.id!==b.dataset.id); }
+  else if(act==='cleardone'){ S.tasks=S.tasks.filter(x=>!x.done); }
+  else if(act==='dellink'){ g.links=g.links.filter(l=>l.id!==b.dataset.id); }
+  else if(act==='up'||act==='down'){ const i=S.groups.indexOf(g), j=act==='up'?i-1:i+1; if(j<0||j>=S.groups.length) return; [S.groups[i],S.groups[j]]=[S.groups[j],S.groups[i]]; }
+  else if(act==='retry-news'){ loadNews(b.dataset.key); return; }
+  else if(act==='delgroup'){
+    if(b.dataset.armed!=='1'){ b.dataset.armed='1'; b.textContent='Tap again to delete'; return; }
+    S.groups=S.groups.filter(x=>x!==g);
+  } else return;
+  save(); render();
+});
+root.addEventListener('change',e=>{
+  const el=e.target;
+  if(el.dataset.act==='rename'){ const g=findGroup(el.dataset.g); g.name=el.value.trim()||g.name; save(); }
+});
+root.addEventListener('submit',e=>{
+  e.preventDefault();
+  const f=e.target, kind=f.dataset.form;
+  if(kind==='task'){ const v=f.querySelector('input').value.trim(); if(!v) return; S.tasks.unshift({id:uid(),t:v,done:false}); }
+  else if(kind==='group'){ const v=f.querySelector('input').value.trim(); if(!v) return; S.groups.push({id:uid(),name:v,links:[]}); }
+  else if(kind==='city'){ const v=f.querySelector('input').value.trim(); if(!v) return; S.city=v; save(); loadWeather(); return; }
+  else if(kind==='link'){
+    const t=f.elements.t.value.trim(), u=normUrl(f.elements.u.value);
+    if(!u){ f.elements.u.focus(); f.elements.u.setCustomValidity('Enter a web address'); f.elements.u.reportValidity(); f.elements.u.setCustomValidity(''); return; }
+    findGroup(f.dataset.g).links.push(L(t||u.replace(/^https?:\/\/(www\.)?/,'').split('/')[0],u));
+  } else return;
+  save(); render();
+  if(kind==='task') $('#newtask').focus();
+});
+
+$('#btn-edit').onclick=()=>{ editing=!editing; render(); };
+
+/* quick add */
+function open(id){ $(id).classList.add('open'); }
+function closeAll(){ document.querySelectorAll('.scrim').forEach(s=>s.classList.remove('open')); }
+document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',closeAll));
+document.querySelectorAll('.scrim').forEach(s=>s.addEventListener('click',e=>{ if(e.target===s) closeAll(); }));
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeAll(); });
+$('#btn-add').onclick=()=>{
+  $('#a-group').innerHTML=S.groups.map(g=>`<option value="${g.id}">${esc(g.name)}</option>`).join('')+'<option value="__new">New group…</option>';
+  $('#a-new-wrap').hidden=true; $('#a-err').textContent=''; $('#f-add').reset();
+  open('#sc-add'); $('#a-title').focus();
+};
+$('#a-group').onchange=e=>{ $('#a-new-wrap').hidden=e.target.value!=='__new'; };
+$('#f-add').addEventListener('submit',e=>{
+  e.preventDefault();
+  const u=normUrl($('#a-url').value);
+  if(!u){ $('#a-err').textContent='Enter a web address, like example.com.'; return; }
+  let g;
+  if($('#a-group').value==='__new'){
+    const n=$('#a-new').value.trim(); if(!n){ $('#a-err').textContent='Name the new group.'; return; }
+    g={id:uid(),name:n,links:[]}; S.groups.push(g);
+  } else g=findGroup($('#a-group').value);
+  g.links.push(L($('#a-title').value.trim()||u.replace(/^https?:\/\/(www\.)?/,'').split('/')[0],u));
+  save(); render(); closeAll();
+});
+
+/* settings */
+$('#btn-set').onclick=()=>{
+  $('#s-city').value=S.city; $('#s-cols').value=S.cols||'auto'; $('#s-size').value=S.size||'medium'; $('#s-io').value=JSON.stringify(S); status(); open('#sc-set');
+};
+$('#s-city').addEventListener('change',e=>{ const v=e.target.value.trim(); if(v){ S.city=v; save(); loadWeather(); } });
+$('#s-size').addEventListener('change',e=>{ S.size=e.target.value; save(); render(); });
+$('#s-cols').addEventListener('change',e=>{ S.cols=e.target.value; save(); render(); });
+$('#s-copy').onclick=async()=>{
+  $('#s-io').value=JSON.stringify(S); $('#s-io').select();
+  try{ await navigator.clipboard.writeText($('#s-io').value); $('#s-status').textContent='Backup copied.'; }
+  catch(e){ $('#s-status').textContent='Select the text above and copy it.'; }
+};
+$('#s-import').onclick=()=>{
+  try{
+    const d=JSON.parse($('#s-io').value);
+    if(!d||!Array.isArray(d.groups)||!Array.isArray(d.tasks)) throw 0;
+    S=Object.assign(defaults(),d); save(); render(); $('#s-city').value=S.city; $('#s-cols').value=S.cols||'auto';
+    $('#s-status').textContent='Restored.';
+  }catch(e){ $('#s-status').textContent='That text is not a valid backup.'; }
+};
+
+migrate(); render(); loadWeather(); NEWS.forEach(n=>loadNews(n[0]));
+setInterval(()=>{ loadWeather(); NEWS.forEach(n=>loadNews(n[0])); },15*60*1000);
+
+</script>
+</body>
+</html>
