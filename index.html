@@ -155,7 +155,6 @@ input[type=text],input[type=search],input:not([type]),select,textarea{padding:6p
 .cam{aspect-ratio:16/9;background:#000;border-radius:8px;overflow:hidden}
 .cam iframe{display:block;width:100%;height:100%;border:0}
 .camnote{margin-top:5px;color:var(--muted);font-size:.9em}.camnote a{color:var(--accent);text-decoration:underline}
-#c4,#c4-rest{display:flex;flex-direction:column;gap:10px;min-width:0}
 </style>
 </head>
 <body data-size="small">
@@ -189,7 +188,7 @@ input[type=text],input[type=search],input:not([type]),select,textarea{padding:6p
   </div>
 </header>
 
-<div class="wrap" id="app"><main class="cols" id="cols"><div class="col" id="c1"></div><div class="col" id="c2"></div><div class="col" id="c3"></div><div class="col" id="c4"><div id="cam-host"></div><div class="col" id="c4-rest"></div></div></main></div>
+<div class="wrap" id="app"><main class="cols" id="cols"><div class="col" id="c1"><div class="col" id="c1-top"></div><div id="cam-host"></div><div class="col" id="c1-bottom"></div></div><div class="col" id="c2"></div><div class="col" id="c3"></div><div class="col" id="c4"></div></main></div>
 
 <!-- quick add link -->
 <div class="scrim" id="sc-add">
@@ -230,11 +229,10 @@ const NEWS_LIMIT=6;
 
 function defaults(){
   return {
-    city:'Fort Worth, TX', size:'small', name:'Ben', m1:true, m2:true, m3:true, m4:true,
+    city:'Fort Worth, TX', size:'small', name:'Ben', m1:true, m2:true, m3:true, m4:true, m5:true,
     tasks:[{id:uid(),t:'Find birth certificates',done:false}],
     groups:[
-      {id:uid(),name:'Popular',col:1,icons:true,links:[L('Gmail','https://mail.google.com'),L('YouTube','https://www.youtube.com'),L('Reddit','https://www.reddit.com'),L('Facebook','https://www.facebook.com'),L('Sheets','https://docs.google.com/spreadsheets'),L('Docs','https://docs.google.com/document'),L('Calendar','https://calendar.google.com'),L('Maps','https://maps.google.com'),L('Drive','https://drive.google.com'),L('GitHub','https://github.com'),L('Claude','https://claude.ai'),L('Amazon','https://www.amazon.com')]},
-      {id:uid(),name:'News links',col:3,links:[L('New York Times','https://www.nytimes.com'),L('Local news near you','https://news.google.com/search?q={city}'),L('NPR','https://www.npr.org'),L('AP News','https://apnews.com'),L('Hacker News','https://news.ycombinator.com')]},
+      {id:uid(),name:'Popular',col:3,icons:true,links:[L('Gmail','https://mail.google.com'),L('YouTube','https://www.youtube.com'),L('Reddit','https://www.reddit.com'),L('Facebook','https://www.facebook.com'),L('Sheets','https://docs.google.com/spreadsheets'),L('Docs','https://docs.google.com/document'),L('Calendar','https://calendar.google.com'),L('Maps','https://maps.google.com'),L('Drive','https://drive.google.com'),L('GitHub','https://github.com'),L('Claude','https://claude.ai'),L('Amazon','https://www.amazon.com')]},
       {id:uid(),name:'Weather',col:3,links:weatherLinks()},
       {id:uid(),name:'Outdoors',col:3,links:[L('REI','https://www.rei.com'),L('Recreation.gov','https://www.recreation.gov'),L('AllTrails','https://www.alltrails.com'),L('Hipcamp','https://www.hipcamp.com')]}
     ]
@@ -266,10 +264,16 @@ function migrate(){
     if(g){ g.name='Weather'; g.links=weatherLinks(); }
     else if(!S.groups.some(x=>x.name==='Weather')) S.groups.push({id:uid(),name:'Weather',col:3,links:weatherLinks()});
   }
+  if(!S.m5){
+    S.m5=true;
+    S.groups=S.groups.filter(g=>g.name!=='News links');
+    const i=S.groups.findIndex(g=>g.name==='Popular');
+    if(i>=0){ const [pop]=S.groups.splice(i,1); pop.col=3; S.groups.unshift(pop); }
+  }
   save();
 }
 let S=defaults(), editing=false;
-try{ const raw=localStorage.getItem('startpage-v2'); if(raw){ const sv=JSON.parse(raw); S=Object.assign(defaults(),sv); S.m1=!!sv.m1; S.m2=!!sv.m2; S.m3=!!sv.m3; S.m4=!!sv.m4; } }catch(e){}
+try{ const raw=localStorage.getItem('startpage-v2'); if(raw){ const sv=JSON.parse(raw); S=Object.assign(defaults(),sv); S.m1=!!sv.m1; S.m2=!!sv.m2; S.m3=!!sv.m3; S.m4=!!sv.m4; S.m5=!!sv.m5; } }catch(e){}
 function save(){ try{ localStorage.setItem('startpage-v2',JSON.stringify(S)); }catch(e){} }
 
 /* ---------- helpers ---------- */
@@ -369,10 +373,11 @@ function render(){
   const addGroup=`<section class="card edit-only" aria-label="Add group"><h2>New group</h2><form class="add" data-form="group"><input id="newgroup" placeholder="Group name" aria-label="Group name" autocomplete="off"><button class="btn pri" type="submit">Add</button></form></section>`;
   const c4=byCol(4);
   // The camera card lives in #cam-host and is never re-rendered, so the video is not restarted by data refreshes.
-  $('#c1').innerHTML=`${byCol(1)}${weatherCard()}${tasksCard()}`;
+  $('#c1-top').innerHTML=`${byCol(1)}${weatherCard()}`;
+  $('#c1-bottom').innerHTML=tasksCard();
   $('#c2').innerHTML=`${NEWS.map(n=>newsCard(n[0],n[1])).join('')}${byCol(2)}`;
   $('#c3').innerHTML=byCol(3);
-  $('#c4-rest').innerHTML=`${sportsCard()}${c4}${addGroup}`;
+  $('#c4').innerHTML=`${sportsCard()}${c4}${addGroup}`;
 }
 const CAM={name:'Purgatory snow stake',url:'https://player.brownrice.com/embed/purgatorysnowstake1/live'};
 $('#cam-host').innerHTML=`<section class="card" aria-label="Webcam"><h2>Webcam <span class="tag">${esc(CAM.name)}</span></h2>
@@ -486,7 +491,7 @@ $('#s-import').onclick=()=>{
   try{
     const d=JSON.parse($('#s-io').value);
     if(!d||!Array.isArray(d.groups)||!Array.isArray(d.tasks)) throw 0;
-    S=Object.assign(defaults(),d); S.m1=!!d.m1; S.m2=!!d.m2; S.m3=!!d.m3; S.m4=!!d.m4; migrate(); render(); loadWeather();
+    S=Object.assign(defaults(),d); S.m1=!!d.m1; S.m2=!!d.m2; S.m3=!!d.m3; S.m4=!!d.m4; S.m5=!!d.m5; migrate(); render(); loadWeather();
     $('#s-city').value=S.city; $('#s-size').value=S.size;
     $('#s-status').textContent='Restored.';
   }catch(e){ $('#s-status').textContent='That text is not a valid backup.'; }
