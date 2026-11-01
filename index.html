@@ -305,7 +305,7 @@ function when(iso){
 }
 function dayOf(iso){ return iso?new Date(iso).toLocaleDateString('en-US',{weekday:'short',month:'numeric',day:'numeric'}):''; }
 function teamRow(t){
-  if(t.error) return `<div class="team"><b>${esc(t.label)}</b><div class="tl">${esc(t.error)}</div></div>`;
+  if(t.error) return `<div class="team"><b>${esc(t.label)}</b><div class="tl">${esc(t.error)}${t.detail?` · ${esc(t.detail)}`:''}</div></div>`;
   const vs=g=>(g.home?'vs ':'at ')+esc(g.opp);
   let out='';
   if(t.live) out+=`<div class="tl"><span class="pill">LIVE</span> ${vs(t.live)} <b class="sc">${t.live.us??''}–${t.live.them??''}</b> ${esc(t.live.detail)}</div>`;

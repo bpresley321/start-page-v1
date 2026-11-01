@@ -15,7 +15,7 @@ module.exports = async (req, res) => {
   const settled = await Promise.allSettled(TEAMS.map(one));
   const teams = settled.map((r, i) => {
     const base = { key: TEAMS[i].key, label: TEAMS[i].label };
-    return r.status === 'fulfilled' ? { ...base, ...r.value } : { ...base, error: 'Unavailable' };
+    return r.status === 'fulfilled' ? { ...base, ...r.value } : { ...base, error: 'Unavailable', detail: String(r.reason && r.reason.message || r.reason).slice(0, 120) };
   });
   res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=900');
   return res.status(200).json({ teams });
