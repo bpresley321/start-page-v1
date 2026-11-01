@@ -225,34 +225,32 @@ const $=s=>document.querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,9);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function L(t,u){return {id:uid(),t,u};}
-const WEBCAMS='https://www.purgatory.ski/mountain/weather-conditions-webcams/';
 const NEWS=[['nyt','New York Times'],['fwreport','Fort Worth Report']];
 const NEWS_LIMIT=6;
 
 function defaults(){
   return {
-    city:'Fort Worth, TX', size:'small', name:'Ben', m1:true, m2:true,
+    city:'Fort Worth, TX', size:'small', name:'Ben', m1:true, m2:true, m3:true,
     tasks:[{id:uid(),t:'Find birth certificates',done:false}],
     groups:[
       {id:uid(),name:'Popular',col:1,icons:true,links:[L('Gmail','https://mail.google.com'),L('YouTube','https://www.youtube.com'),L('Reddit','https://www.reddit.com'),L('Facebook','https://www.facebook.com'),L('Sheets','https://docs.google.com/spreadsheets'),L('Docs','https://docs.google.com/document'),L('Calendar','https://calendar.google.com'),L('Maps','https://maps.google.com'),L('Drive','https://drive.google.com'),L('GitHub','https://github.com'),L('Claude','https://claude.ai'),L('Amazon','https://www.amazon.com')]},
       {id:uid(),name:'News links',col:3,links:[L('New York Times','https://www.nytimes.com'),L('Local news near you','https://news.google.com/search?q={city}'),L('NPR','https://www.npr.org'),L('AP News','https://apnews.com'),L('Hacker News','https://news.ycombinator.com')]},
       {id:uid(),name:'Weather links',col:3,links:[L('Forecast for your city','https://www.google.com/search?q=weather+{city}'),L('National Weather Service','https://forecast.weather.gov/zipcity.php?inputstring={city}'),L('Weather on timeanddate','https://www.timeanddate.com/weather/?query={city}'),L('National radar','https://radar.weather.gov'),L('Storm Prediction Center','https://www.spc.noaa.gov'),L('National Hurricane Center','https://www.nhc.noaa.gov')]},
-      {id:uid(),name:'Outdoors',col:3,links:[L('REI','https://www.rei.com'),L('Recreation.gov','https://www.recreation.gov'),L('AllTrails','https://www.alltrails.com'),L('Hipcamp','https://www.hipcamp.com')]},
-      webcamGroup()
+      {id:uid(),name:'Outdoors',col:3,links:[L('REI','https://www.rei.com'),L('Recreation.gov','https://www.recreation.gov'),L('AllTrails','https://www.alltrails.com'),L('Hipcamp','https://www.hipcamp.com')]}
     ]
   };
 }
-function webcamGroup(){ return {id:uid(),name:'Purgatory Webcams',col:3,links:[L('Base (Lift 1, looking south)',WEBCAMS),L('Village Plaza',WEBCAMS),L('Snow stake',WEBCAMS),L('Express summit (Lift 1, north)',WEBCAMS),L('Legends summit (Lift 8)',WEBCAMS)]}; }
 function migrate(){
-  if(!S.m1){ S.m1=true; if(!S.groups.some(g=>g.name==='Purgatory Webcams')) S.groups.push(webcamGroup()); }
+  S.m1=true;
   if(!S.m2){
     S.m2=true; S.size='small';
     S.groups.forEach(g=>{ if(!g.col) g.col=(g.name==='Popular')?1:3; if(g.name==='Popular'&&g.icons===undefined) g.icons=true; });
   }
+  if(!S.m3){ S.m3=true; S.groups=S.groups.filter(g=>g.name!=='Purgatory Webcams'); }
   save();
 }
 let S=defaults(), editing=false;
-try{ const raw=localStorage.getItem('startpage-v2'); if(raw){ const sv=JSON.parse(raw); S=Object.assign(defaults(),sv); S.m1=!!sv.m1; S.m2=!!sv.m2; } }catch(e){}
+try{ const raw=localStorage.getItem('startpage-v2'); if(raw){ const sv=JSON.parse(raw); S=Object.assign(defaults(),sv); S.m1=!!sv.m1; S.m2=!!sv.m2; S.m3=!!sv.m3; } }catch(e){}
 function save(){ try{ localStorage.setItem('startpage-v2',JSON.stringify(S)); }catch(e){} }
 
 /* ---------- helpers ---------- */
@@ -469,7 +467,7 @@ $('#s-import').onclick=()=>{
   try{
     const d=JSON.parse($('#s-io').value);
     if(!d||!Array.isArray(d.groups)||!Array.isArray(d.tasks)) throw 0;
-    S=Object.assign(defaults(),d); S.m1=!!d.m1; S.m2=!!d.m2; migrate(); render(); loadWeather();
+    S=Object.assign(defaults(),d); S.m1=!!d.m1; S.m2=!!d.m2; S.m3=!!d.m3; migrate(); render(); loadWeather();
     $('#s-city').value=S.city; $('#s-size').value=S.size;
     $('#s-status').textContent='Restored.';
   }catch(e){ $('#s-status').textContent='That text is not a valid backup.'; }
