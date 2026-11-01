@@ -67,3 +67,23 @@ test('weather: empty city is 400, unknown place is 404', async () => {
   await require('../api/weather')({ url: '/api/weather?city=Nowhereville' }, res);
   assert.strictEqual(res.code, 404);
 });
+
+test('sports: one failing or mismatched team does not break the rest', async () => {
+  const body = (name, id) => ({ team: { displayName: name }, events: [{ date: '2026-11-08T18:00Z', competitions: [{ date: '2026-11-08T18:00Z', status: { type: { state: 'pre' } }, competitors: [{ homeAway: 'home', team: { id: String(id), shortDisplayName: 'Us' } }, { homeAway: 'away', team: { id: '999', shortDisplayName: 'Them' } }] }] }] });
+  global.fetch = async (u) => {
+    if (u.includes('/mlb/')) return { ok: false, status: 500 };
+    if (u.includes('/nhl/')) return { ok: true, json: async () => body('Dallas Cowboys', 25) };
+    const id = Number(u.match(/teams\/(\d+)/)[1]);
+    const names = { 239: 'Baylor Bears', 367: 'Tottenham Hotspur', 6: 'Dallas Mavericks' };
+    return { ok: true, json: async () => body(names[id], id) };
+  };
+  const res = mkRes();
+  await require('../api/sports')({ url: '/api/sports' }, res);
+  assert.strictEqual(res.code, 200);
+  const by = Object.fromEntries(res.body.teams.map((t) => [t.key, t]));
+  assert.strictEqual(by.rangers.error, 'Unavailable');
+  assert.strictEqual(by.stars.error, 'Unavailable');
+  assert.strictEqual(by.mavs.next.opp, 'Them');
+  assert.strictEqual(by['baylor-fb'].next.opp, 'Them');
+  assert.strictEqual(res.body.teams.length, 6);
+});

@@ -146,6 +146,12 @@ input[type=text],input[type=search],input:not([type]),select,textarea{padding:6p
 .panel textarea{min-height:100px;font:12px ui-monospace,Menlo,monospace}
 .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .status{font-size:12.5px;color:var(--muted)}
+.team{padding:5px 0;border-bottom:1px solid var(--line)}
+.team:last-child{border:0}
+.tl{color:var(--muted);font-variant-numeric:tabular-nums}
+.res{color:var(--muted)}.res.rW{color:var(--accent)}.res.rL{color:var(--warn)}
+.sc{color:var(--ink)}
+.pill{font:700 9.5px var(--body);letter-spacing:.04em;background:var(--warn);color:#fff;padding:1px 6px;border-radius:99px}
 </style>
 </head>
 <body data-size="small">
@@ -265,7 +271,7 @@ function colOf(g){ const c=+g.col; return c>=1&&c<=4?c:3; }
 function ago(iso){ if(!iso) return ''; const m=Math.round((Date.now()-new Date(iso))/60000); if(m<1) return 'now'; if(m<60) return m+' min ago'; const h=Math.round(m/60); if(h<24) return h+' hr ago'; return Math.round(h/24)+' d ago'; }
 
 /* ---------- cards ---------- */
-const cache={weather:null,news:{}};
+const cache={weather:null,news:{},sports:null};
 function tasksCard(){
   const d=S.tasks.filter(t=>t.done).length, n=S.tasks.length;
   return `<section class="card" aria-labelledby="h-tasks"><h2 id="h-tasks">Tasks</h2>
@@ -290,6 +296,29 @@ function newsCard(key,title){
   if(n&&n.error) body=`<li class="empty" role="alert">${esc(n.error)} <button class="btn sm" data-act="retry-news" data-key="${key}" type="button">Retry</button></li>`;
   else if(n) body=n.items.length?n.items.slice(0,NEWS_LIMIT).map(i=>`<li><a href="${esc(i.link)}" target="_blank" rel="noopener">${esc(i.title)}</a><small>${ago(i.time)}</small></li>`).join(''):'<li class="empty">No stories.</li>';
   return `<section class="card" aria-label="${esc(title)}"><h2>${esc(title)}</h2><ul class="news">${body}</ul></section>`;
+}
+function when(iso){
+  if(!iso) return '';
+  const d=new Date(iso), t=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  const today=new Date().toDateString()===d.toDateString();
+  return today?'Today '+t:d.toLocaleDateString('en-US',{weekday:'short',month:'numeric',day:'numeric'})+' '+t;
+}
+function dayOf(iso){ return iso?new Date(iso).toLocaleDateString('en-US',{weekday:'short',month:'numeric',day:'numeric'}):''; }
+function teamRow(t){
+  if(t.error) return `<div class="team"><b>${esc(t.label)}</b><div class="tl">${esc(t.error)}</div></div>`;
+  const vs=g=>(g.home?'vs ':'at ')+esc(g.opp);
+  let out='';
+  if(t.live) out+=`<div class="tl"><span class="pill">LIVE</span> ${vs(t.live)} <b class="sc">${t.live.us??''}–${t.live.them??''}</b> ${esc(t.live.detail)}</div>`;
+  if(t.last) out+=`<div class="tl">Last: <b class="res r${t.last.result||''}">${t.last.result||''}</b> ${t.last.us??''}–${t.last.them??''} ${vs(t.last)} · ${dayOf(t.last.date)}</div>`;
+  out+=t.next?`<div class="tl">Next: ${vs(t.next)} · ${when(t.next.date)}</div>`:`<div class="tl">${t.live?'':'No game scheduled'}</div>`;
+  return `<div class="team"><b>${esc(t.label)}</b>${out}</div>`;
+}
+function sportsCard(){
+  const s=cache.sports;
+  let body='<div class="empty">Loading…</div>';
+  if(s&&s.error) body=`<div class="empty" role="alert">${esc(s.error)} <button class="btn sm" data-act="retry-sports" type="button">Retry</button></div>`;
+  else if(s) body=s.teams.map(teamRow).join('');
+  return `<section class="card" aria-label="Sports"><h2>Sports</h2>${body}</section>`;
 }
 function groupCard(g,i){
   const items=g.links.map(l=>{
@@ -319,16 +348,17 @@ function render(){
   const addGroup=`<section class="card edit-only" aria-label="Add group"><h2>New group</h2><form class="add" data-form="group"><input id="newgroup" placeholder="Group name" aria-label="Group name" autocomplete="off"><button class="btn pri" type="submit">Add</button></form></section>`;
   const c4=byCol(4);
   $('#cols').innerHTML=
-    `<div class="col">${byCol(1)}${tasksCard()}${weatherCard()}</div>`+
+    `<div class="col">${byCol(1)}${weatherCard()}${tasksCard()}</div>`+
     `<div class="col">${NEWS.map(n=>newsCard(n[0],n[1])).join('')}${byCol(2)}</div>`+
     `<div class="col">${byCol(3)}</div>`+
-    `<div class="col">${c4}${addGroup}${c4?'':'<div class="hint edit-only">Column 4 is empty. Set a group\'s column to 4 to place it here.</div>'}</div>`;
+    `<div class="col">${sportsCard()}${c4}${addGroup}</div>`;
 }
 
 /* ---------- live data ---------- */
 async function getJson(url){ const r=await fetch(url); const j=await r.json().catch(()=>({})); if(!r.ok) return {error:j.error||'Could not load'}; return j; }
 function softRender(){ const a=document.activeElement; if(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return; render(); }
 async function loadWeather(){ cache.weather=null; softRender(); cache.weather=await getJson('/api/weather?city='+encodeURIComponent(S.city||'')).catch(()=>({error:'Weather is unavailable right now'})); softRender(); }
+async function loadSports(){ cache.sports=await getJson('/api/sports').catch(()=>({error:'Scores are unavailable right now'})); softRender(); }
 async function loadNews(key){ cache.news[key]=null; softRender(); cache.news[key]=await getJson('/api/news?feed='+key).catch(()=>({error:'Could not load this feed'})); softRender(); }
 
 /* ---------- banner ---------- */
@@ -363,6 +393,7 @@ root.addEventListener('click',e=>{
   else if(act==='icons'){ g.icons=!g.icons; }
   else if(act==='up'||act==='down'){ const i=S.groups.indexOf(g), j=act==='up'?i-1:i+1; if(j<0||j>=S.groups.length) return; [S.groups[i],S.groups[j]]=[S.groups[j],S.groups[i]]; }
   else if(act==='retry-news'){ loadNews(b.dataset.key); return; }
+  else if(act==='retry-sports'){ loadSports(); return; }
   else if(act==='delgroup'){
     if(b.dataset.armed!=='1'){ b.dataset.armed='1'; b.textContent='Tap again to delete'; return; }
     S.groups=S.groups.filter(x=>x!==g);
@@ -436,7 +467,8 @@ $('#s-import').onclick=()=>{
   }catch(e){ $('#s-status').textContent='That text is not a valid backup.'; }
 };
 
-migrate(); render(); loadWeather(); NEWS.forEach(n=>loadNews(n[0]));
+migrate(); render(); loadWeather(); loadSports(); NEWS.forEach(n=>loadNews(n[0]));
+setInterval(loadSports,5*60*1000);
 setInterval(()=>{ loadWeather(); NEWS.forEach(n=>loadNews(n[0])); },15*60*1000);
 </script>
 </body>
