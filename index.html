@@ -229,7 +229,7 @@ const NEWS_LIMIT=6;
 
 function defaults(){
   return {
-    city:'Fort Worth, TX', size:'small', name:'Ben', m1:true, m2:true, m3:true, m4:true, m5:true,
+    city:'Fort Worth, TX', size:'small', name:'Ben', m1:true, m2:true, m3:true, m4:true, m5:true, m6:true,
     tasks:[{id:uid(),t:'Find birth certificates',done:false}],
     groups:[
       {id:uid(),name:'Popular',col:3,icons:true,links:[L('Gmail','https://mail.google.com'),L('YouTube','https://www.youtube.com'),L('Reddit','https://www.reddit.com'),L('Facebook','https://www.facebook.com'),L('Sheets','https://docs.google.com/spreadsheets'),L('Docs','https://docs.google.com/document'),L('Calendar','https://calendar.google.com'),L('Maps','https://maps.google.com'),L('Drive','https://drive.google.com'),L('GitHub','https://github.com'),L('Claude','https://claude.ai'),L('Amazon','https://www.amazon.com')]},
@@ -270,10 +270,19 @@ function migrate(){
     const i=S.groups.findIndex(g=>g.name==='Popular');
     if(i>=0){ const [pop]=S.groups.splice(i,1); pop.col=3; S.groups.unshift(pop); }
   }
+  if(!S.m6){
+    // Older saved pages named these groups "News" and "Weather"; earlier cleanups only matched the newer names.
+    S.m6=true;
+    S.groups=S.groups.filter(g=>g.name!=='News'&&g.name!=='News links');
+    const w=S.groups.find(x=>x.name==='Weather'||x.name==='Weather links');
+    if(w){ w.name='Weather'; w.links=weatherLinks(); } else S.groups.push({id:uid(),name:'Weather',col:3,links:weatherLinks()});
+    const i=S.groups.findIndex(g=>g.name==='Popular');
+    if(i>=0){ const [pop]=S.groups.splice(i,1); pop.col=3; S.groups.unshift(pop); }
+  }
   save();
 }
 let S=defaults(), editing=false;
-try{ const raw=localStorage.getItem('startpage-v2'); if(raw){ const sv=JSON.parse(raw); S=Object.assign(defaults(),sv); S.m1=!!sv.m1; S.m2=!!sv.m2; S.m3=!!sv.m3; S.m4=!!sv.m4; S.m5=!!sv.m5; } }catch(e){}
+try{ const raw=localStorage.getItem('startpage-v2'); if(raw){ const sv=JSON.parse(raw); S=Object.assign(defaults(),sv); S.m1=!!sv.m1; S.m2=!!sv.m2; S.m3=!!sv.m3; S.m4=!!sv.m4; S.m5=!!sv.m5; S.m6=!!sv.m6; } }catch(e){}
 function save(){ try{ localStorage.setItem('startpage-v2',JSON.stringify(S)); }catch(e){} }
 
 /* ---------- helpers ---------- */
@@ -491,7 +500,7 @@ $('#s-import').onclick=()=>{
   try{
     const d=JSON.parse($('#s-io').value);
     if(!d||!Array.isArray(d.groups)||!Array.isArray(d.tasks)) throw 0;
-    S=Object.assign(defaults(),d); S.m1=!!d.m1; S.m2=!!d.m2; S.m3=!!d.m3; S.m4=!!d.m4; S.m5=!!d.m5; migrate(); render(); loadWeather();
+    S=Object.assign(defaults(),d); S.m1=!!d.m1; S.m2=!!d.m2; S.m3=!!d.m3; S.m4=!!d.m4; S.m5=!!d.m5; S.m6=!!d.m6; migrate(); render(); loadWeather();
     $('#s-city').value=S.city; $('#s-size').value=S.size;
     $('#s-status').textContent='Restored.';
   }catch(e){ $('#s-status').textContent='That text is not a valid backup.'; }
