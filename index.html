@@ -228,14 +228,14 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function L(t,u){return {id:uid(),t,u};}
 const NEWS=[['nyt','New York Times'],['fwreport','Fort Worth Report']];
-const NEWS_LIMIT=6;
+const NEWS_LIMIT=5;
 
 function defaults(){
   return {
-    city:'Fort Worth, TX', size:'small', name:'Ben', m1:true, m2:true, m3:true, m4:true, m5:true, m6:true,
+    city:'Fort Worth, TX', size:'small', name:'Ben', m1:true, m2:true, m3:true, m4:true, m5:true, m6:true, m7:true,
     tasks:[{id:uid(),t:'Find birth certificates',done:false}],
     groups:[
-      {id:uid(),name:'Popular',col:3,icons:true,links:[L('Gmail','https://mail.google.com'),L('YouTube','https://www.youtube.com'),L('Reddit','https://www.reddit.com'),L('Facebook','https://www.facebook.com'),L('Sheets','https://docs.google.com/spreadsheets'),L('Docs','https://docs.google.com/document'),L('Calendar','https://calendar.google.com'),L('Maps','https://maps.google.com'),L('Drive','https://drive.google.com'),L('GitHub','https://github.com'),L('Claude','https://claude.ai'),L('Amazon','https://www.amazon.com')]},
+      {id:uid(),name:'Popular',col:2,icons:true,links:[L('Gmail','https://mail.google.com'),L('YouTube','https://www.youtube.com'),L('Reddit','https://www.reddit.com'),L('Facebook','https://www.facebook.com'),L('Sheets','https://docs.google.com/spreadsheets'),L('Docs','https://docs.google.com/document'),L('Calendar','https://calendar.google.com'),L('Maps','https://maps.google.com'),L('Drive','https://drive.google.com'),L('GitHub','https://github.com'),L('Claude','https://claude.ai'),L('Amazon','https://www.amazon.com')]},
       {id:uid(),name:'Weather',col:3,links:weatherLinks()},
       {id:uid(),name:'Outdoors',col:3,links:[L('REI','https://www.rei.com'),L('Recreation.gov','https://www.recreation.gov'),L('AllTrails','https://www.alltrails.com'),L('Hipcamp','https://www.hipcamp.com')]}
     ]
@@ -282,10 +282,16 @@ function migrate(){
     const i=S.groups.findIndex(g=>g.name==='Popular');
     if(i>=0){ const [pop]=S.groups.splice(i,1); pop.col=3; S.groups.unshift(pop); }
   }
+  if(!S.m7){
+    // Popular icons move to the top of column 2, above the news cards. Only that group is touched.
+    S.m7=true;
+    const pop=S.groups.find(g=>g.name==='Popular');
+    if(pop) pop.col=2;
+  }
   persist();
 }
 let S=defaults(), editing=false;
-try{ const raw=localStorage.getItem('startpage-v2'); if(raw){ const sv=JSON.parse(raw); S=Object.assign(defaults(),sv); S.m1=!!sv.m1; S.m2=!!sv.m2; S.m3=!!sv.m3; S.m4=!!sv.m4; S.m5=!!sv.m5; S.m6=!!sv.m6; } }catch(e){}
+try{ const raw=localStorage.getItem('startpage-v2'); if(raw){ const sv=JSON.parse(raw); S=Object.assign(defaults(),sv); S.m1=!!sv.m1; S.m2=!!sv.m2; S.m3=!!sv.m3; S.m4=!!sv.m4; S.m5=!!sv.m5; S.m6=!!sv.m6; S.m7=!!sv.m7; } }catch(e){}
 function persist(){ try{ localStorage.setItem('startpage-v2',JSON.stringify(S)); }catch(e){} }
 // save() is for edits by the person: it stamps the change time and queues a sync. persist() only writes locally.
 function save(){ S.updated=Date.now(); persist(); queuePush(); }
@@ -302,7 +308,7 @@ async function api(method,body){
 }
 function adopt(remote){
   const d=remote.data; S=Object.assign(defaults(),d);
-  for(const k of ['m1','m2','m3','m4','m5','m6']) S[k]=!!d[k];
+  for(const k of ['m1','m2','m3','m4','m5','m6','m7']) S[k]=!!d[k];
   migrate(); S.updated=remote.updated; persist(); render();
 }
 async function pull(){
@@ -435,7 +441,7 @@ function render(){
   // The camera card lives in #cam-host and is never re-rendered, so the video is not restarted by data refreshes.
   $('#c1-top').innerHTML=`${byCol(1)}${weatherCard()}`;
   $('#c1-bottom').innerHTML=tasksCard();
-  $('#c2').innerHTML=`${NEWS.map(n=>newsCard(n[0],n[1])).join('')}${byCol(2)}`;
+  $('#c2').innerHTML=`${byCol(2)}${NEWS.map(n=>newsCard(n[0],n[1])).join('')}`;
   $('#c3').innerHTML=byCol(3);
   $('#c4').innerHTML=`${sportsCard()}${c4}${addGroup}`;
 }
@@ -557,7 +563,7 @@ $('#s-import').onclick=()=>{
   try{
     const d=JSON.parse($('#s-io').value);
     if(!d||!Array.isArray(d.groups)||!Array.isArray(d.tasks)) throw 0;
-    S=Object.assign(defaults(),d); S.m1=!!d.m1; S.m2=!!d.m2; S.m3=!!d.m3; S.m4=!!d.m4; S.m5=!!d.m5; S.m6=!!d.m6; migrate(); save(); render(); loadWeather();
+    S=Object.assign(defaults(),d); S.m1=!!d.m1; S.m2=!!d.m2; S.m3=!!d.m3; S.m4=!!d.m4; S.m5=!!d.m5; S.m6=!!d.m6; S.m7=!!d.m7; migrate(); save(); render(); loadWeather();
     $('#s-city').value=S.city; $('#s-size').value=S.size;
     $('#s-status').textContent='Restored.';
   }catch(e){ $('#s-status').textContent='That text is not a valid backup.'; }
