@@ -130,7 +130,7 @@ input[type=text],input[type=search],input:not([type]),select,textarea{padding:6p
 
 /* news */
 .news{list-style:none;margin:0;padding:0}
-.news li{padding:5px 0;border-bottom:1px solid var(--line)}
+.news li{padding:4px 0;border-bottom:1px solid var(--line)}
 .news li:last-child{border:0}
 .news a{display:block;font-weight:500;text-wrap:balance}
 .news a:hover{color:var(--accent)}
@@ -379,7 +379,7 @@ function newsCard(key,title){
   const n=cache.news[key];
   let body='<li class="empty">Loading…</li>';
   if(n&&n.error) body=`<li class="empty" role="alert">${esc(n.error)} <button class="btn sm" data-act="retry-news" data-key="${key}" type="button">Retry</button></li>`;
-  else if(n) body=n.items.length?n.items.slice(0,NEWS_LIMIT).map(i=>`<li><a href="${esc(i.link)}" target="_blank" rel="noopener">${esc(i.title)}</a><small>${ago(i.time)}</small></li>`).join(''):'<li class="empty">No stories.</li>';
+  else if(n) body=n.items.length?n.items.slice(0,NEWS_LIMIT).map(i=>`<li><a href="${esc(i.link)}" target="_blank" rel="noopener">${esc(i.title)}</a></li>`).join(''):'<li class="empty">No stories.</li>';
   return `<section class="card" aria-label="${esc(title)}"><h2>${esc(title)}</h2><ul class="news">${body}</ul></section>`;
 }
 function when(iso){
