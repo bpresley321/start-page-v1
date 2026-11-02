@@ -209,6 +209,9 @@ input[type=text],input[type=search],input:not([type]),select,textarea{padding:6p
     <h3>Settings</h3>
     <label for="s-city">City for weather<input id="s-city" type="text" autocomplete="off" placeholder="Fort Worth, TX"></label>
     <label for="s-size">Text size<select id="s-size"><option value="xsmall">Extra small</option><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select></label>
+    <label for="s-pass">Sync passcode<input id="s-pass" type="password" autocomplete="off" placeholder="Same passcode on every device"></label>
+    <div class="row"><button type="button" class="btn" id="s-disconnect">Turn off on this device</button><button type="button" class="btn pri" id="s-connect">Connect sync</button></div>
+    <div class="status" id="sync-status" role="status"></div>
     <label for="s-io">Backup (copy this text to save, paste to restore)<textarea id="s-io" spellcheck="false"></textarea></label>
     <div class="row">
       <button type="button" class="btn" id="s-copy">Copy backup</button>
@@ -279,11 +282,59 @@ function migrate(){
     const i=S.groups.findIndex(g=>g.name==='Popular');
     if(i>=0){ const [pop]=S.groups.splice(i,1); pop.col=3; S.groups.unshift(pop); }
   }
-  save();
+  persist();
 }
 let S=defaults(), editing=false;
 try{ const raw=localStorage.getItem('startpage-v2'); if(raw){ const sv=JSON.parse(raw); S=Object.assign(defaults(),sv); S.m1=!!sv.m1; S.m2=!!sv.m2; S.m3=!!sv.m3; S.m4=!!sv.m4; S.m5=!!sv.m5; S.m6=!!sv.m6; } }catch(e){}
-function save(){ try{ localStorage.setItem('startpage-v2',JSON.stringify(S)); }catch(e){} }
+function persist(){ try{ localStorage.setItem('startpage-v2',JSON.stringify(S)); }catch(e){} }
+// save() is for edits by the person: it stamps the change time and queues a sync. persist() only writes locally.
+function save(){ S.updated=Date.now(); persist(); queuePush(); }
+
+/* ---------- sync across devices (needs the passcode and /api/data) ---------- */
+let pass=''; try{ pass=localStorage.getItem('startpage-pass')||''; }catch(e){}
+let pushTimer=null, pushing=false, again=false, syncMsg=pass?'Sync is on.':'Sync is off on this device.';
+function syncStatus(m){ syncMsg=m; const el=$('#sync-status'); if(el) el.textContent=m; }
+function dropPass(){ pass=''; try{ localStorage.removeItem('startpage-pass'); }catch(e){} }
+async function api(method,body){
+  const r=await fetch('/api/data',{method,headers:{'x-sync-passcode':pass,'content-type':'application/json'},body:body?JSON.stringify(body):undefined});
+  const j=await r.json().catch(()=>({}));
+  return {status:r.status,j};
+}
+function adopt(remote){
+  const d=remote.data; S=Object.assign(defaults(),d);
+  for(const k of ['m1','m2','m3','m4','m5','m6']) S[k]=!!d[k];
+  migrate(); S.updated=remote.updated; persist(); render();
+}
+async function pull(){
+  if(!pass) return;
+  try{
+    const {status,j}=await api('GET');
+    if(status===401){ dropPass(); syncStatus('Wrong passcode. Sync is off on this device.'); return; }
+    if(status!==200){ syncStatus(j.error||'Sync is unavailable right now.'); return; }
+    if(j.empty){ await push(); return; }
+    const mine=S.updated||0;
+    if(j.updated>mine){ const cityChanged=j.data.city!==S.city; adopt(j); if(cityChanged) loadWeather(); syncStatus('Synced.'); }
+    else if(j.updated<mine) await push();
+    else syncStatus('Synced.');
+  }catch(e){ syncStatus('Sync is unavailable right now. Changes stay on this device.'); }
+}
+async function push(){
+  if(!pass) return;
+  if(pushing){ again=true; return; }
+  pushing=true;
+  try{
+    if(!S.updated){ S.updated=Date.now(); persist(); }
+    const {status,j}=await api('PUT',{data:S,updated:S.updated});
+    if(status===200) syncStatus('Synced.');
+    else if(status===409){ adopt(j); syncStatus('Synced. Another device had newer changes, so they were loaded here.'); }
+    else if(status===401){ dropPass(); syncStatus('Wrong passcode. Sync is off on this device.'); }
+    else syncStatus(j.error||'Sync is unavailable right now.');
+  }catch(e){ syncStatus('Sync is unavailable right now. Changes stay on this device.'); }
+  pushing=false;
+  if(again){ again=false; push(); }
+}
+function queuePush(){ if(!pass) return; clearTimeout(pushTimer); pushTimer=setTimeout(push,800); }
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') pull(); });
 
 /* ---------- helpers ---------- */
 function normUrl(u){
@@ -487,8 +538,14 @@ $('#f-add').addEventListener('submit',e=>{
 
 /* settings */
 $('#btn-set').onclick=()=>{
-  $('#s-city').value=S.city; $('#s-size').value=S.size||'small'; $('#s-io').value=JSON.stringify(S); $('#s-status').textContent='Saved in this browser.'; open('#sc-set');
+  $('#s-city').value=S.city; $('#s-size').value=S.size||'small'; $('#s-io').value=JSON.stringify(S); $('#s-status').textContent=''; $('#s-pass').value=''; $('#s-pass').placeholder=pass?'Saved on this device':'Same passcode on every device'; syncStatus(syncMsg); open('#sc-set');
 };
+$('#s-connect').onclick=async()=>{
+  const v=$('#s-pass').value; if(!v){ syncStatus('Enter your passcode first.'); return; }
+  pass=v; try{ localStorage.setItem('startpage-pass',pass); }catch(e){}
+  $('#s-pass').value=''; $('#s-pass').placeholder='Saved on this device'; syncStatus('Connecting…'); await pull();
+};
+$('#s-disconnect').onclick=()=>{ dropPass(); $('#s-pass').value=''; $('#s-pass').placeholder='Same passcode on every device'; syncStatus('Sync is off on this device.'); };
 $('#s-city').addEventListener('change',e=>{ const v=e.target.value.trim(); if(v){ S.city=v; save(); loadWeather(); } });
 $('#s-size').addEventListener('change',e=>{ S.size=e.target.value; save(); render(); });
 $('#s-copy').onclick=async()=>{
@@ -500,13 +557,13 @@ $('#s-import').onclick=()=>{
   try{
     const d=JSON.parse($('#s-io').value);
     if(!d||!Array.isArray(d.groups)||!Array.isArray(d.tasks)) throw 0;
-    S=Object.assign(defaults(),d); S.m1=!!d.m1; S.m2=!!d.m2; S.m3=!!d.m3; S.m4=!!d.m4; S.m5=!!d.m5; S.m6=!!d.m6; migrate(); render(); loadWeather();
+    S=Object.assign(defaults(),d); S.m1=!!d.m1; S.m2=!!d.m2; S.m3=!!d.m3; S.m4=!!d.m4; S.m5=!!d.m5; S.m6=!!d.m6; migrate(); save(); render(); loadWeather();
     $('#s-city').value=S.city; $('#s-size').value=S.size;
     $('#s-status').textContent='Restored.';
   }catch(e){ $('#s-status').textContent='That text is not a valid backup.'; }
 };
 
-migrate(); render(); loadWeather(); loadSports(); NEWS.forEach(n=>loadNews(n[0]));
+migrate(); render(); loadWeather(); loadSports(); NEWS.forEach(n=>loadNews(n[0])); pull();
 setInterval(loadSports,5*60*1000);
 setInterval(()=>{ loadWeather(); NEWS.forEach(n=>loadNews(n[0])); },15*60*1000);
 </script>

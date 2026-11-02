@@ -23,7 +23,13 @@ The banner is a drawn mountain illustration. To use your own photo, add a file n
 
 Every push to the main branch redeploys automatically.
 
+## Sync across devices
+`api/data.js` saves the page's data (links, groups, tasks, settings) in an Upstash Redis database so every device shows the same page.
+- Vercel needs the Upstash Redis database connected to the project (it supplies `KV_REST_API_URL` and `KV_REST_API_TOKEN`, or the `UPSTASH_REDIS_REST_*` equivalents) and a passcode in an environment variable named `HOME_PASSWORD` (`SYNC_PASSCODE` also works). Redeploy after adding variables.
+- On each device, open Settings, type the passcode, and tap Connect sync. It is remembered on that device.
+- The newest change wins. A device that has never synced adopts what is already saved, so connect the device with your best links first.
+- Without a passcode on a device, the page works as before, saving only in that browser.
+
 ## Next steps
 - Google sign-in and calendar (needs a Google Cloud OAuth client, one-time setup).
-- Sync links and tasks across devices (needs a small database).
 - Webcams shown inside the page (needs camera image addresses that allow embedding).
