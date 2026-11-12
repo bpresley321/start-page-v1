@@ -87,3 +87,14 @@ test('sports: one failing or mismatched team does not break the rest', async () 
   assert.strictEqual(by['baylor-fb'].next.opp, 'Them');
   assert.strictEqual(res.body.teams.length, 6);
 });
+
+test('news: Texas Tribune feed (RSS with media namespace, CDATA, entities) parses', async () => {
+  global.fetch = async (u) => {
+    assert.match(u, /texastribune\.org\/feeds\/main/);
+    return { ok: true, text: async () => `<?xml version="1.0" encoding="utf-8"?><rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/" xmlns:dc="http://purl.org/dc/elements/1.1/"><channel><title>The Texas Tribune</title><link>https://www.texastribune.org/</link><item><title>Texas A&amp;M president&#8217;s plan</title><link>https://www.texastribune.org/2026/11/12/a/</link><description><![CDATA[<p>x</p>]]></description><pubDate>Thu, 12 Nov 2026 12:00:00 +0000</pubDate><media:content url="https://t.test/i.jpg"><media:title>Photo</media:title></media:content></item><item><title><![CDATA[Second story]]></title><link>https://www.texastribune.org/2026/11/12/b/</link></item></channel></rss>` };
+  };
+  const res = mkRes();
+  await require('../api/news')({ url: '/api/news?feed=txtribune' }, res);
+  assert.strictEqual(res.code, 200);
+  assert.deepStrictEqual(res.body.items.map((i) => i.title), ['Texas A&M president’s plan', 'Second story']);
+});
