@@ -119,6 +119,13 @@ input[type=text],input[type=search],input:not([type]),select,textarea{padding:6p
 
 /* weather */
 .city{display:flex;gap:5px;margin:0 0 6px}
+.wtabs{display:flex;gap:4px;overflow-x:auto;margin:0 0 6px;padding-bottom:2px;scrollbar-width:thin}
+.wtab{display:inline-flex;align-items:center;flex:none;border:1px solid var(--line);border-radius:99px;background:var(--panel)}
+.wtab>button{border:0;background:none;color:var(--muted);padding:3px 9px;cursor:pointer;font:inherit;border-radius:99px;white-space:nowrap}
+.wtab.on{background:var(--accent-soft);border-color:var(--accent)}.wtab.on>button{color:var(--accent);font-weight:600}
+.wtab .wx-x{padding:3px 7px 3px 0;color:var(--muted)}
+.wtab-add{flex:none;border:1px dashed var(--line);border-radius:99px;background:none;color:var(--muted);padding:3px 11px;cursor:pointer;font:inherit}
+.wtab-add:hover,.wtab-add.on{border-color:var(--accent);color:var(--accent)}
 .city input{flex:1;min-width:0}
 .wx-now{display:flex;align-items:center;gap:12px;margin-bottom:6px}
 .wx-temp{font-family:var(--display);font-size:2.6em;font-weight:700;line-height:1;letter-spacing:-.03em}
@@ -207,7 +214,7 @@ input[type=text],input[type=search],input:not([type]),select,textarea{padding:6p
 <div class="scrim" id="sc-set">
   <div class="panel">
     <h3>Settings</h3>
-    <label for="s-city">City for weather<input id="s-city" type="text" autocomplete="off" placeholder="Fort Worth, TX"></label>
+    <label for="s-city">Open weather city (rename this tab)<input id="s-city" type="text" autocomplete="off" placeholder="Fort Worth, TX"></label>
     <label for="s-size">Text size<select id="s-size"><option value="xsmall">Extra small</option><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select></label>
     <label for="s-pass">Sync passcode<input id="s-pass" type="password" autocomplete="off" placeholder="Same passcode on every device"></label>
     <div class="row"><button type="button" class="btn" id="s-disconnect">Turn off on this device</button><button type="button" class="btn pri" id="s-connect">Connect sync</button></div>
@@ -254,6 +261,14 @@ function weatherLinks(){ return [
   L('Clear Fork Trinity River at Fort Worth','https://water.noaa.gov/gauges/FWHT2'),
   L('Clear Fk Trinity Rv nr Benbrook, TX','https://waterdata.usgs.gov/monitoring-location/08047000/')
 ]; }
+const MAX_CITIES=6;
+// S.city is the open weather tab; S.cities is the tab list. Older saved data only has S.city.
+function fixCities(){
+  if(!S.city) S.city='Fort Worth, TX';
+  if(!Array.isArray(S.cities)) S.cities=[];
+  S.cities=S.cities.filter(c=>typeof c==='string'&&c.trim()).slice(0,MAX_CITIES);
+  if(!S.cities.includes(S.city)){ if(S.cities.length>=MAX_CITIES) S.cities.pop(); S.cities.unshift(S.city); }
+}
 function migrate(){
   S.m1=true;
   if(!S.m2){
@@ -288,6 +303,7 @@ function migrate(){
     const pop=S.groups.find(g=>g.name==='Popular');
     if(pop) pop.col=2;
   }
+  fixCities();
   persist();
 }
 let S=defaults(), editing=false;
@@ -362,7 +378,8 @@ function colOf(g){ const c=+g.col; return c>=1&&c<=4?c:3; }
 function ago(iso){ if(!iso) return ''; const m=Math.round((Date.now()-new Date(iso))/60000); if(m<1) return 'now'; if(m<60) return m+' min ago'; const h=Math.round(m/60); if(h<24) return h+' hr ago'; return Math.round(h/24)+' d ago'; }
 
 /* ---------- cards ---------- */
-const cache={weather:null,news:{},sports:null};
+const cache={weather:null,wx:{},news:{},sports:null};
+let addingCity=false;
 function tasksCard(){
   const d=S.tasks.filter(t=>t.done).length, n=S.tasks.length;
   return `<section class="card" aria-labelledby="h-tasks"><h2 id="h-tasks">Tasks</h2>
@@ -379,7 +396,8 @@ function weatherCard(){
   else if(w) body=`<div class="wx-now"><div class="wx-temp">${w.now.temp}°</div><div class="wx-meta"><b>${esc(w.now.text)}</b><br>Feels ${w.now.feels}° · Wind ${w.now.wind} mph</div></div>
     <div class="forecast">${w.days.map(d=>`<div><span>${new Date(d.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short'})}</span><b>${d.hi}°</b><span>${d.lo}°</span><small>${esc(d.text)}</small></div>`).join('')}</div>`;
   return `<section class="card" aria-labelledby="h-wx"><h2 id="h-wx">Weather${w&&w.place?`<span class="tag">${esc(w.place)}</span>`:''}</h2>
-  <form class="city" data-form="city"><input id="city-input" value="${esc(S.city)}" aria-label="City" placeholder="City, State"><button class="btn sm" type="submit">Set city</button></form>${body}</section>`;
+  <div class="wtabs" role="tablist" aria-label="Cities">${S.cities.map((c,i)=>`<span class="wtab${c===S.city?' on':''}"><button type="button" role="tab" aria-selected="${c===S.city}" data-act="wxtab" data-i="${i}" title="${esc(c)}">${esc(c.split(',')[0])}</button>${S.cities.length>1?`<button type="button" class="wx-x edit-only flex" data-act="wxdel" data-i="${i}" aria-label="Remove ${esc(c)}">×</button>`:''}</span>`).join('')}${S.cities.length<MAX_CITIES?`<button type="button" class="wtab-add${addingCity?' on':''}" data-act="wxadd" aria-label="Add a city" aria-expanded="${addingCity}">+</button>`:''}</div>
+  ${addingCity?`<form class="city" data-form="city"><input id="city-input" aria-label="New city" placeholder="City, State (e.g. Durango, CO)" autocomplete="off"><button class="btn sm" type="submit">Add</button></form>`:''}${body}</section>`;
 }
 function newsCard(key,title){
   const n=cache.news[key];
@@ -444,6 +462,8 @@ function render(){
   $('#c2').innerHTML=`${byCol(2)}${NEWS.map(n=>newsCard(n[0],n[1])).join('')}`;
   $('#c3').innerHTML=byCol(3);
   $('#c4').innerHTML=`${sportsCard()}${c4}${addGroup}`;
+  const bar=document.querySelector('.wtabs'), on=bar&&bar.querySelector('.wtab.on');
+  if(on) bar.scrollLeft=Math.max(0,on.offsetLeft-bar.offsetLeft-bar.clientWidth/2+on.offsetWidth/2);
 }
 const CAM={name:'Purgatory snow stake',url:'https://player.brownrice.com/embed/purgatorysnowstake1/live'};
 $('#cam-host').innerHTML=`<section class="card" aria-label="Webcam"><h2>Webcam <span class="tag">${esc(CAM.name)}</span></h2>
@@ -453,7 +473,15 @@ $('#cam-host').innerHTML=`<section class="card" aria-label="Webcam"><h2>Webcam <
 /* ---------- live data ---------- */
 async function getJson(url){ const r=await fetch(url); const j=await r.json().catch(()=>({})); if(!r.ok) return {error:j.error||'Could not load'}; return j; }
 function softRender(){ const a=document.activeElement; if(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return; render(); }
-async function loadWeather(){ cache.weather=null; softRender(); cache.weather=await getJson('/api/weather?city='+encodeURIComponent(S.city||'')).catch(()=>({error:'Weather is unavailable right now'})); softRender(); }
+async function loadWeather(force){
+  const c=S.city||'', hit=cache.wx[c];
+  if(!force&&hit&&Date.now()-hit.t<5*60*1000){ cache.weather=hit.d; softRender(); return; }
+  cache.weather=null; softRender();
+  const d=await getJson('/api/weather?city='+encodeURIComponent(c)).catch(()=>({error:'Weather is unavailable right now'}));
+  if(!d.error) cache.wx[c]={d,t:Date.now()};
+  if(S.city===c) cache.weather=d;   // ignore a slow reply for a tab that is no longer open
+  softRender();
+}
 async function loadSports(){ cache.sports=await getJson('/api/sports').catch(()=>({error:'Scores are unavailable right now'})); softRender(); }
 async function loadNews(key){ cache.news[key]=null; softRender(); cache.news[key]=await getJson('/api/news?feed='+key).catch(()=>({error:'Could not load this feed'})); softRender(); }
 
@@ -488,6 +516,14 @@ root.addEventListener('click',e=>{
   else if(act==='dellink'){ g.links=g.links.filter(l=>l.id!==b.dataset.id); }
   else if(act==='icons'){ g.icons=!g.icons; }
   else if(act==='up'||act==='down'){ const i=S.groups.indexOf(g), j=act==='up'?i-1:i+1; if(j<0||j>=S.groups.length) return; [S.groups[i],S.groups[j]]=[S.groups[j],S.groups[i]]; }
+  else if(act==='wxtab'){ const c=S.cities[+b.dataset.i]; if(!c||c===S.city) return; S.city=c; addingCity=false; save(); render(); loadWeather(); return; }
+  else if(act==='wxadd'){ addingCity=!addingCity; render(); const i=$('#city-input'); if(i) i.focus(); return; }
+  else if(act==='wxdel'){
+    if(S.cities.length<2) return;
+    const i=+b.dataset.i, gone=S.cities[i]; S.cities.splice(i,1);
+    if(gone===S.city){ S.city=S.cities[Math.max(0,i-1)]; save(); render(); loadWeather(); return; }
+    save(); render(); return;
+  }
   else if(act==='retry-news'){ loadNews(b.dataset.key); return; }
   else if(act==='retry-sports'){ loadSports(); return; }
   else if(act==='delgroup'){
@@ -506,7 +542,13 @@ root.addEventListener('submit',e=>{
   const f=e.target, kind=f.dataset.form;
   if(kind==='task'){ const v=f.querySelector('input').value.trim(); if(!v) return; S.tasks.unshift({id:uid(),t:v,done:false}); }
   else if(kind==='group'){ const v=f.querySelector('input').value.trim(); if(!v) return; S.groups.push({id:uid(),name:v,col:4,links:[]}); }
-  else if(kind==='city'){ const v=f.querySelector('input').value.trim(); if(!v) return; S.city=v; save(); loadWeather(); return; }
+  else if(kind==='city'){
+    const v=f.querySelector('input').value.trim(); if(!v) return;
+    const have=S.cities.find(c=>c.toLowerCase()===v.toLowerCase());
+    if(!have&&S.cities.length>=MAX_CITIES) return;
+    if(!have) S.cities.push(v);
+    S.city=have||v; addingCity=false; save(); render(); loadWeather(); return;
+  }
   else if(kind==='link'){
     const t=f.elements.t.value.trim(), u=normUrl(f.elements.u.value);
     if(!u){ f.elements.u.focus(); f.elements.u.setCustomValidity('Enter a web address'); f.elements.u.reportValidity(); f.elements.u.setCustomValidity(''); return; }
@@ -552,7 +594,7 @@ $('#s-connect').onclick=async()=>{
   $('#s-pass').value=''; $('#s-pass').placeholder='Saved on this device'; syncStatus('Connecting…'); await pull();
 };
 $('#s-disconnect').onclick=()=>{ dropPass(); $('#s-pass').value=''; $('#s-pass').placeholder='Same passcode on every device'; syncStatus('Sync is off on this device.'); };
-$('#s-city').addEventListener('change',e=>{ const v=e.target.value.trim(); if(v){ S.city=v; save(); loadWeather(); } });
+$('#s-city').addEventListener('change',e=>{ const v=e.target.value.trim(); if(!v) return; const i=S.cities.indexOf(S.city); if(i>=0) S.cities[i]=v; S.city=v; fixCities(); save(); render(); loadWeather(); });
 $('#s-size').addEventListener('change',e=>{ S.size=e.target.value; save(); render(); });
 $('#s-copy').onclick=async()=>{
   $('#s-io').value=JSON.stringify(S); $('#s-io').select();
@@ -571,7 +613,7 @@ $('#s-import').onclick=()=>{
 
 migrate(); render(); loadWeather(); loadSports(); NEWS.forEach(n=>loadNews(n[0])); pull();
 setInterval(loadSports,5*60*1000);
-setInterval(()=>{ loadWeather(); NEWS.forEach(n=>loadNews(n[0])); },15*60*1000);
+setInterval(()=>{ loadWeather(true); NEWS.forEach(n=>loadNews(n[0])); },15*60*1000);
 </script>
 </body>
 </html>

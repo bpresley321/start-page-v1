@@ -33,3 +33,6 @@ Every push to the main branch redeploys automatically.
 ## Next steps
 - Google sign-in and calendar (needs a Google Cloud OAuth client, one-time setup).
 - Webcams shown inside the page (needs camera image addresses that allow embedding).
+
+## Weather tabs
+The Weather card has one tab per city (up to 6). Tap a tab to switch, **+** to add a city (use `City, ST`), and in Edit mode tap **×** on a tab to remove it. The list syncs with everything else; each city's forecast is cached for 5 minutes.
