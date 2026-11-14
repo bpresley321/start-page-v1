@@ -36,3 +36,12 @@ Every push to the main branch redeploys automatically.
 
 ## Weather tabs
 The Weather card has one tab per city (up to 6). Tap a tab to switch, **+** to add a city (use `City, ST`), and in Edit mode tap **×** on a tab to remove it. The list syncs with everything else; each city's forecast is cached for 5 minutes.
+
+## Google sign-in
+Until the three settings below exist, the page uses the sync passcode as before. Once they're set (and the project redeployed), the page shows a "Sign in with Google" screen, only the emails in `ALLOWED_EMAILS` can get in, the passcode stops working, and sync uses the sign-in instead. A sign-in lasts 60 days per device.
+
+1. console.cloud.google.com → create a project → **Google Auth Platform** → Get started: app name, your email, Audience **External**. Under **Audience**, add your Gmail as a test user.
+2. **Clients** → Create client → *Web application* → Authorized redirect URI: `https://YOUR-SITE/api/auth/callback` (Settings on the page shows the exact address). Copy the client ID and secret.
+3. Vercel → project → Settings → Environment Variables: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ALLOWED_EMAILS` (your Gmail). Then Deployments → Redeploy.
+
+Only the `openid email` scopes are requested, so Google's app verification isn't needed. Moving to a new domain later: add its callback address as another redirect URI.

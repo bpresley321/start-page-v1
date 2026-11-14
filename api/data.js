@@ -1,7 +1,9 @@
 'use strict';
 // Saves and loads the page's data (links, tasks, settings) in an Upstash Redis database.
-// Protected by a passcode (env SYNC_PASSCODE) sent in the x-sync-passcode header.
+// Protected by Google sign-in once it is set up (see lib/auth.js); until then by a passcode
+// (env SYNC_PASSCODE or HOME_PASSWORD) sent in the x-sync-passcode header.
 const crypto = require('crypto');
+const A = require('../lib/auth');
 
 const KEY = 'startpage:state';
 const MAX_BYTES = 400000;
@@ -36,12 +38,20 @@ function validBody(b) {
 
 module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
+  const google = A.config();
   const pass = process.env.SYNC_PASSCODE || process.env.HOME_PASSWORD;
-  if (!pass) return res.status(503).json({ error: 'Sync is not set up: add a HOME_PASSWORD setting in Vercel, then redeploy.' });
+  if (!google && !pass) return res.status(503).json({ error: 'Sync is not set up: add a HOME_PASSWORD setting in Vercel, then redeploy.' });
   const cfg = redisConfig();
   if (!cfg) return res.status(503).json({ error: 'Sync is not set up: the Redis database is not connected to this project.' });
 
-  if (!samePasscode(req.headers['x-sync-passcode'] || '', pass)) {
+  if (google) {
+    // Once Google sign-in is set up, the passcode is no longer accepted.
+    if (!A.readSession(google, A.cookies(req)[A.SESSION_COOKIE])) return res.status(401).json({ error: 'Sign in required', signin: true });
+    // Cookie-authenticated writes must be JSON so another site cannot send them as a plain form.
+    if (req.method === 'PUT' && !/^application\/json/i.test(String(req.headers['content-type'] || ''))) {
+      return res.status(415).json({ error: 'JSON required' });
+    }
+  } else if (!samePasscode(req.headers['x-sync-passcode'] || '', pass)) {
     await new Promise((r) => setTimeout(r, 600));
     return res.status(401).json({ error: 'Wrong passcode' });
   }

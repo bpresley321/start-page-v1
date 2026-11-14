@@ -153,6 +153,16 @@ input[type=text],input[type=search],input:not([type]),select,textarea{padding:6p
 .panel textarea{min-height:100px;font:12px ui-monospace,Menlo,monospace}
 .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .status{font-size:12.5px;color:var(--muted)}
+.gate{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(8,12,30,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+body.locked .gate{display:flex}body.locked #app{visibility:hidden}
+.gate .panel{max-width:360px;text-align:center;align-items:center}
+.gate p{margin:0;color:var(--muted)}
+.gbtn{display:inline-flex;align-items:center;gap:10px;padding:9px 16px;border:1px solid var(--line);border-radius:99px;background:#fff;color:#1f1f1f;font-weight:600;text-decoration:none;font-size:15px}
+.gbtn:hover{border-color:var(--accent)}
+.gbtn svg{width:18px;height:18px}
+.gate .err{color:var(--warn);font-size:13px}
+#pass-ui:not([hidden]),#g-ui:not([hidden]){display:flex;flex-direction:column;gap:10px}
+.code{font:12px ui-monospace,Menlo,monospace;word-break:break-all;background:var(--accent-soft);padding:6px 8px;border-radius:6px;color:var(--ink);user-select:all}
 .team{padding:5px 0;border-bottom:1px solid var(--line)}
 .team:last-child{border:0}
 .tl{color:var(--muted);font-variant-numeric:tabular-nums}
@@ -196,6 +206,7 @@ input[type=text],input[type=search],input:not([type]),select,textarea{padding:6p
 </header>
 
 <div class="wrap" id="app"><main class="cols" id="cols"><div class="col" id="c1"><div class="col" id="c1-top"></div><div id="cam-host"></div><div class="col" id="c1-bottom"></div></div><div class="col" id="c2"></div><div class="col" id="c3"></div><div class="col" id="c4"></div></main></div>
+<div class="gate" id="gate" role="dialog" aria-modal="true" aria-labelledby="gate-h"><div class="panel"><h3 id="gate-h">Sign in to your start page</h3><p>Your links, tasks and settings load after you sign in.</p><a class="gbtn" href="/api/auth/login"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2c-2 1.5-4.5 2.4-7.2 2.4-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>Sign in with Google</a><div class="err" id="gate-err" role="alert"></div></div></div>
 
 <!-- quick add link -->
 <div class="scrim" id="sc-add">
@@ -216,8 +227,12 @@ input[type=text],input[type=search],input:not([type]),select,textarea{padding:6p
     <h3>Settings</h3>
     <label for="s-city">Open weather city (rename this tab)<input id="s-city" type="text" autocomplete="off" placeholder="Fort Worth, TX"></label>
     <label for="s-size">Text size<select id="s-size"><option value="xsmall">Extra small</option><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select></label>
+    <div id="g-ui" hidden><div class="status" id="g-who"></div><div class="row"><button type="button" class="btn" id="s-signout">Sign out on this device</button></div></div>
+    <div id="pass-ui">
     <label for="s-pass">Sync passcode<input id="s-pass" type="password" autocomplete="off" placeholder="Same passcode on every device"></label>
     <div class="row"><button type="button" class="btn" id="s-disconnect">Turn off on this device</button><button type="button" class="btn pri" id="s-connect">Connect sync</button></div>
+    <div class="status" id="g-setup" hidden>Google sign-in isn't set up yet. When you add it in Google Cloud, use this redirect address: <div class="code" id="g-redirect"></div></div>
+    </div>
     <div class="status" id="sync-status" role="status"></div>
     <label for="s-io">Backup (copy this text to save, paste to restore)<textarea id="s-io" spellcheck="false"></textarea></label>
     <div class="row">
@@ -314,11 +329,32 @@ function save(){ S.updated=Date.now(); persist(); queuePush(); }
 
 /* ---------- sync across devices (needs the passcode and /api/data) ---------- */
 let pass=''; try{ pass=localStorage.getItem('startpage-pass')||''; }catch(e){}
+// Google sign-in (when set up in Vercel) replaces the passcode. The session is an HttpOnly cookie the page can't read,
+// so /api/auth/me says who is signed in.
+let auth={configured:false,signedIn:false,email:null,redirectUri:''};
+function syncOn(){ return auth.configured?auth.signedIn:!!pass; }
+function lock(on,msg){ document.body.classList.toggle('locked',!!on); $('#gate-err').textContent=msg||''; }
+const SIGNIN_MSG={'not-allowed':"That Google account isn't allowed here. Try your own account.",cancelled:'Sign-in was cancelled.',expired:'Sign-in took too long. Please try again.',failed:"Sign-in didn't work. Please try again.",'not-set-up':"Google sign-in isn't set up yet."};
+async function checkAuth(){
+  const u=new URL(location.href), m=u.searchParams.get('signin');
+  if(m){ u.searchParams.delete('signin'); history.replaceState(null,'',u.pathname+u.search+u.hash); }
+  try{
+    const r=await fetch('/api/auth/me',{cache:'no-store'}); if(!r.ok) throw 0;
+    auth=await r.json();
+  }catch(e){ pull(); return; }   // offline or no server: keep working from this device's copy
+  if(auth.configured){
+    if(pass) dropPass();          // the passcode is retired once Google sign-in is on
+    if(auth.signedIn){ lock(false); syncMsg='Sync is on.'; pull(); }
+    else lock(true,SIGNIN_MSG[m]||'');
+  } else pull();
+}
+function signedOut(){ auth.signedIn=false; lock(true,'Your sign-in expired. Please sign in again.'); }
 let pushTimer=null, pushing=false, again=false, syncMsg=pass?'Sync is on.':'Sync is off on this device.';
 function syncStatus(m){ syncMsg=m; const el=$('#sync-status'); if(el) el.textContent=m; }
 function dropPass(){ pass=''; try{ localStorage.removeItem('startpage-pass'); }catch(e){} }
 async function api(method,body){
-  const r=await fetch('/api/data',{method,headers:{'x-sync-passcode':pass,'content-type':'application/json'},body:body?JSON.stringify(body):undefined});
+  const h={'content-type':'application/json'}; if(!auth.configured&&pass) h['x-sync-passcode']=pass;
+  const r=await fetch('/api/data',{method,headers:h,credentials:'same-origin',body:body?JSON.stringify(body):undefined});
   const j=await r.json().catch(()=>({}));
   return {status:r.status,j};
 }
@@ -328,10 +364,10 @@ function adopt(remote){
   migrate(); S.updated=remote.updated; persist(); render();
 }
 async function pull(){
-  if(!pass) return;
+  if(!syncOn()) return;
   try{
     const {status,j}=await api('GET');
-    if(status===401){ dropPass(); syncStatus('Wrong passcode. Sync is off on this device.'); return; }
+    if(status===401){ if(j.signin){ signedOut(); return; } dropPass(); syncStatus('Wrong passcode. Sync is off on this device.'); return; }
     if(status!==200){ syncStatus(j.error||'Sync is unavailable right now.'); return; }
     if(j.empty){ await push(); return; }
     const mine=S.updated||0;
@@ -341,7 +377,7 @@ async function pull(){
   }catch(e){ syncStatus('Sync is unavailable right now. Changes stay on this device.'); }
 }
 async function push(){
-  if(!pass) return;
+  if(!syncOn()) return;
   if(pushing){ again=true; return; }
   pushing=true;
   try{
@@ -349,13 +385,13 @@ async function push(){
     const {status,j}=await api('PUT',{data:S,updated:S.updated});
     if(status===200) syncStatus('Synced.');
     else if(status===409){ adopt(j); syncStatus('Synced. Another device had newer changes, so they were loaded here.'); }
-    else if(status===401){ dropPass(); syncStatus('Wrong passcode. Sync is off on this device.'); }
+    else if(status===401){ if(j.signin) signedOut(); else { dropPass(); syncStatus('Wrong passcode. Sync is off on this device.'); } }
     else syncStatus(j.error||'Sync is unavailable right now.');
   }catch(e){ syncStatus('Sync is unavailable right now. Changes stay on this device.'); }
   pushing=false;
   if(again){ again=false; push(); }
 }
-function queuePush(){ if(!pass) return; clearTimeout(pushTimer); pushTimer=setTimeout(push,800); }
+function queuePush(){ if(!syncOn()) return; clearTimeout(pushTimer); pushTimer=setTimeout(push,800); }
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') pull(); });
 
 /* ---------- helpers ---------- */
@@ -586,12 +622,22 @@ $('#f-add').addEventListener('submit',e=>{
 
 /* settings */
 $('#btn-set').onclick=()=>{
+  $('#g-ui').hidden=!auth.signedIn; $('#pass-ui').hidden=auth.configured;
+  $('#g-who').textContent=auth.signedIn?'Signed in with Google as '+auth.email+'. Sync is on.':'';
+  $('#g-setup').hidden=auth.configured||!auth.redirectUri; $('#g-redirect').textContent=auth.redirectUri||'';
   $('#s-city').value=S.city; $('#s-size').value=S.size||'small'; $('#s-io').value=JSON.stringify(S); $('#s-status').textContent=''; $('#s-pass').value=''; $('#s-pass').placeholder=pass?'Saved on this device':'Same passcode on every device'; syncStatus(syncMsg); open('#sc-set');
 };
 $('#s-connect').onclick=async()=>{
   const v=$('#s-pass').value; if(!v){ syncStatus('Enter your passcode first.'); return; }
   pass=v; try{ localStorage.setItem('startpage-pass',pass); }catch(e){}
   $('#s-pass').value=''; $('#s-pass').placeholder='Saved on this device'; syncStatus('Connecting…'); await pull();
+};
+$('#s-signout').onclick=async()=>{
+  const b=$('#s-signout'); b.disabled=true; b.textContent='Signing out…';
+  clearTimeout(pushTimer); try{ await push(); }catch(e){}            // save any last change first
+  try{ await fetch('/api/auth/logout',{method:'POST'}); }catch(e){}
+  try{ localStorage.removeItem('startpage-v2'); }catch(e){}         // don't leave your data on a shared device
+  location.replace('/');
 };
 $('#s-disconnect').onclick=()=>{ dropPass(); $('#s-pass').value=''; $('#s-pass').placeholder='Same passcode on every device'; syncStatus('Sync is off on this device.'); };
 $('#s-city').addEventListener('change',e=>{ const v=e.target.value.trim(); if(!v) return; const i=S.cities.indexOf(S.city); if(i>=0) S.cities[i]=v; S.city=v; fixCities(); save(); render(); loadWeather(); });
@@ -611,7 +657,7 @@ $('#s-import').onclick=()=>{
   }catch(e){ $('#s-status').textContent='That text is not a valid backup.'; }
 };
 
-migrate(); render(); loadWeather(); loadSports(); NEWS.forEach(n=>loadNews(n[0])); pull();
+migrate(); render(); loadWeather(); loadSports(); NEWS.forEach(n=>loadNews(n[0])); checkAuth();
 setInterval(loadSports,5*60*1000);
 setInterval(()=>{ loadWeather(true); NEWS.forEach(n=>loadNews(n[0])); },15*60*1000);
 </script>
