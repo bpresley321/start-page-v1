@@ -133,7 +133,7 @@ input[type=text],input[type=search],input:not([type]),select,textarea{padding:6p
 .forecast{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;text-align:center;color:var(--muted);border-top:1px solid var(--line);padding-top:6px}
 .forecast div{display:flex;flex-direction:column;gap:1px;align-items:center}
 .forecast b{color:var(--ink);font-variant-numeric:tabular-nums}.forecast small{font-size:.82em}
-.tag{font:500 10.5px var(--body);color:var(--accent);background:var(--accent-soft);padding:2px 7px;border-radius:99px}
+.tag{text-decoration:none;font:500 10.5px var(--body);color:var(--accent);background:var(--accent-soft);padding:2px 7px;border-radius:99px}
 
 /* news */
 .news{list-style:none;margin:0;padding:0}
@@ -164,6 +164,17 @@ body.locked .gate{display:flex}body.locked #app{visibility:hidden}
 #pass-ui:not([hidden]),#g-ui:not([hidden]){display:flex;flex-direction:column;gap:10px}
 .code{font:12px ui-monospace,Menlo,monospace;word-break:break-all;background:var(--accent-soft);padding:6px 8px;border-radius:6px;color:var(--ink);user-select:all}
 .team{padding:5px 0;border-bottom:1px solid var(--line)}
+/* calendar */
+.cal-day{font-size:.82em;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:8px 0 2px}
+.cal-day:first-of-type{margin-top:0}
+.cal-ev{display:flex;align-items:baseline;gap:7px;padding:2px 0;min-width:0}
+.cal-ev .t{flex:none;width:4.2em;color:var(--muted);font-variant-numeric:tabular-nums;font-size:.92em}
+.cal-ev .dot,.cal-key .dot{flex:none;width:8px;height:8px;border-radius:50%;align-self:center}
+.cal-ev .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cal-ev .n small{color:var(--muted)}
+.cal-key{display:flex;flex-wrap:wrap;gap:3px 10px;margin-top:8px;padding-top:6px;border-top:1px solid var(--line);font-size:.85em;color:var(--muted)}
+.cal-key span{display:inline-flex;align-items:center;gap:4px}
+.cal-key .bad{color:var(--warn)}
 .team:last-child{border:0}
 .tl{color:var(--muted);font-variant-numeric:tabular-nums}
 .res{color:var(--muted)}.res.rW{color:var(--accent)}.res.rL{color:var(--warn)}
@@ -344,7 +355,7 @@ async function checkAuth(){
   }catch(e){ pull(); return; }   // offline or no server: keep working from this device's copy
   if(auth.configured){
     if(pass) dropPass();          // the passcode is retired once Google sign-in is on
-    if(auth.signedIn){ lock(false); syncMsg='Sync is on.'; pull(); }
+    if(auth.signedIn){ lock(false); syncMsg='Sync is on.'; pull(); loadCalendar(); }
     else lock(true,SIGNIN_MSG[m]||'');
   } else pull();
 }
@@ -414,7 +425,7 @@ function colOf(g){ const c=+g.col; return c>=1&&c<=4?c:3; }
 function ago(iso){ if(!iso) return ''; const m=Math.round((Date.now()-new Date(iso))/60000); if(m<1) return 'now'; if(m<60) return m+' min ago'; const h=Math.round(m/60); if(h<24) return h+' hr ago'; return Math.round(h/24)+' d ago'; }
 
 /* ---------- cards ---------- */
-const cache={weather:null,wx:{},news:{},sports:null};
+const cache={weather:null,wx:{},news:{},sports:null,cal:null};
 let addingCity=false;
 function tasksCard(){
   const d=S.tasks.filter(t=>t.done).length, n=S.tasks.length;
@@ -458,6 +469,45 @@ function teamRow(t){
   out+=t.next?`<div class="tl">Next: ${vs(t.next)} · ${when(t.next.date)}</div>`:`<div class="tl">${t.live?'':'No game scheduled'}</div>`;
   return `<div class="team"><b>${esc(t.label)}</b>${out}</div>`;
 }
+const CAL_COLORS=['#2f7de1','#d64545','#8e5bd6','#e08a1e','#1f9d74','#c2459c','#5b6b7d','#b5891b','#2aa3b8'];
+function lkey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function fromKey(k){ const [y,m,d]=k.split('-').map(Number); return new Date(y,m-1,d); }
+function shortTime(d){ const h=d.getHours(), m=d.getMinutes(); return (h%12||12)+(m?':'+String(m).padStart(2,'0'):'')+(h<12?'a':'p'); }
+function calendarCard(){
+  if(!auth.signedIn) return '';
+  const c=cache.cal;
+  const head=`<h2 id="h-cal">Calendar<a class="tag" href="https://calendar.google.com" target="_blank" rel="noopener">Open</a></h2>`;
+  if(!c) return `<section class="card" aria-labelledby="h-cal">${head}<div class="empty">Loading…</div></section>`;
+  if(c.error) return `<section class="card" aria-labelledby="h-cal">${head}<div class="empty" role="alert">${esc(c.error)} <button class="btn sm" data-act="retry-cal" type="button">Retry</button></div></section>`;
+  if(c.setup) return `<section class="card" aria-labelledby="h-cal">${head}<div class="empty">No calendars yet. Add CALENDAR_1, CALENDAR_2… in Vercel's settings.</div></section>`;
+  const now=new Date(), today=new Date(now.getFullYear(),now.getMonth(),now.getDate()), keys=[];
+  for(let i=0;i<7;i++) keys.push(lkey(new Date(today.getFullYear(),today.getMonth(),today.getDate()+i)));
+  const days={}; keys.forEach(k=>days[k]=[]);
+  for(const e of c.events){
+    let k, sort, label, extra='';
+    if(e.allDay){
+      if(e.end<=keys[0]) continue;
+      k=e.start<keys[0]?keys[0]:e.start; sort=''; label='All day';
+      const last=lkey(new Date(fromKey(e.end).getTime()-864e5));
+      if(last>k) extra=' · until '+fromKey(last).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+    } else {
+      const st=new Date(e.start), en=new Date(e.end);
+      if((e.end===e.start?st.getTime()+36e5:en.getTime())<now) continue;   // already over
+      k=st<today?keys[0]:lkey(st); sort=e.start; label=st<today?'Ongoing':shortTime(st);
+    }
+    if(days[k]) days[k].push({e,sort,label,extra});
+  }
+  let body='';
+  keys.forEach((k,i)=>{
+    const list=days[k]; if(!list.length) return;
+    list.sort((a,b)=>a.sort<b.sort?-1:a.sort>b.sort?1:0);
+    const d=fromKey(k), name=i===0?'Today':i===1?'Tomorrow':d.toLocaleDateString('en-US',{weekday:'long'});
+    body+=`<div class="cal-day">${name} · ${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>`+list.map(x=>`<div class="cal-ev" title="${esc(x.e.title+(x.e.location?' — '+x.e.location:''))}"><span class="t">${x.label}</span><span class="dot" style="background:${CAL_COLORS[x.e.cal%CAL_COLORS.length]}"></span><span class="n">${esc(x.e.title)}${x.extra?`<small>${esc(x.extra)}</small>`:''}</span></div>`).join('');
+  });
+  if(!body) body='<div class="empty">Nothing on the calendar this week.</div>';
+  const key=c.calendars.length>1||c.calendars.some(x=>x.error)?`<div class="cal-key">${c.calendars.map(x=>x.error?`<span class="bad">⚠ ${esc(x.name)} didn't load</span>`:`<span><i class="dot" style="background:${CAL_COLORS[x.idx%CAL_COLORS.length]}"></i>${esc(x.name)}</span>`).join('')}</div>`:'';
+  return `<section class="card" aria-labelledby="h-cal">${head}${body}${key}</section>`;
+}
 function sportsCard(){
   const s=cache.sports;
   let body='<div class="empty">Loading…</div>';
@@ -497,7 +547,7 @@ function render(){
   $('#c1-bottom').innerHTML=tasksCard();
   $('#c2').innerHTML=`${byCol(2)}${NEWS.map(n=>newsCard(n[0],n[1])).join('')}`;
   $('#c3').innerHTML=byCol(3);
-  $('#c4').innerHTML=`${sportsCard()}${c4}${addGroup}`;
+  $('#c4').innerHTML=`${calendarCard()}${sportsCard()}${c4}${addGroup}`;
   const bar=document.querySelector('.wtabs'), on=bar&&bar.querySelector('.wtab.on');
   if(on) bar.scrollLeft=Math.max(0,on.offsetLeft-bar.offsetLeft-bar.clientWidth/2+on.offsetWidth/2);
 }
@@ -518,6 +568,7 @@ async function loadWeather(force){
   if(S.city===c) cache.weather=d;   // ignore a slow reply for a tab that is no longer open
   softRender();
 }
+async function loadCalendar(){ if(!auth.signedIn) return; cache.cal=await getJson('/api/calendar').catch(()=>({error:'Calendar is unavailable right now'})); softRender(); }
 async function loadSports(){ cache.sports=await getJson('/api/sports').catch(()=>({error:'Scores are unavailable right now'})); softRender(); }
 async function loadNews(key){ cache.news[key]=null; softRender(); cache.news[key]=await getJson('/api/news?feed='+key).catch(()=>({error:'Could not load this feed'})); softRender(); }
 
@@ -562,6 +613,7 @@ root.addEventListener('click',e=>{
   }
   else if(act==='retry-news'){ loadNews(b.dataset.key); return; }
   else if(act==='retry-sports'){ loadSports(); return; }
+  else if(act==='retry-cal'){ cache.cal=null; render(); loadCalendar(); return; }
   else if(act==='delgroup'){
     if(b.dataset.armed!=='1'){ b.dataset.armed='1'; b.textContent='Tap again to delete'; return; }
     S.groups=S.groups.filter(x=>x!==g);
@@ -659,6 +711,7 @@ $('#s-import').onclick=()=>{
 
 migrate(); render(); loadWeather(); loadSports(); NEWS.forEach(n=>loadNews(n[0])); checkAuth();
 setInterval(loadSports,5*60*1000);
+setInterval(loadCalendar,10*60*1000);
 setInterval(()=>{ loadWeather(true); NEWS.forEach(n=>loadNews(n[0])); },15*60*1000);
 </script>
 </body>

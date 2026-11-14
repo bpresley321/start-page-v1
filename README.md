@@ -45,3 +45,8 @@ Until the three settings below exist, the page uses the sync passcode as before.
 3. Vercel → project → Settings → Environment Variables: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ALLOWED_EMAILS` (your Gmail). Then Deployments → Redeploy.
 
 Only the `openid email` scopes are requested, so Google's app verification isn't needed. Moving to a new domain later: add its callback address as another redirect URI.
+
+## Calendar
+The Calendar card (top of column 4) shows the next 7 days from up to 9 calendars, only when you're signed in with Google.
+In Google Calendar (on a computer): Settings → pick the calendar → **Integrate calendar** → copy the **Secret address in iCal format** (your own calendars) or **Public address in iCal format** (public ones). Then in Vercel add `CALENDAR_1`, `CALENDAR_2`, … with those addresses and redeploy. The card uses each calendar's own name; to use a different one, write `Name|address`.
+Calendars are re-read every 10 minutes. Repeating events, cancellations and moved events are handled.

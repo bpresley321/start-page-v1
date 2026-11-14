@@ -119,3 +119,29 @@ test('data: with Google set up, needs a session and ignores the passcode', async
   res = mkRes(); await data({ method: 'GET', headers: { cookie: 'sp_session=' + t } }, res);
   assert.strictEqual(res.body.updated, 5);
 });
+
+test('calendar: needs sign-in, merges calendars, and one broken calendar does not break the rest', async () => {
+  const cal = require('../api/calendar');
+  let res = mkRes(); await cal(req('/api/calendar'), res);
+  assert.strictEqual(res.statusCode, 401);
+  const ck = 'sp_session=' + encodeURIComponent(A.makeSession(A.config(), 'ben@example.com'));
+  res = mkRes(); await cal(req('/api/calendar', ck), res);
+  assert.strictEqual(res.body.setup, true);
+
+  const soon = new Date(Date.now() + 3600e3).toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
+  process.env.CALENDAR_1 = 'https://cal.test/mine.ics';
+  process.env.CALENDAR_2 = 'Allison|webcal://cal.test/allison.ics';
+  process.env.CALENDAR_3 = 'http://insecure.test/x.ics';
+  process.env.CALENDAR_4 = 'https://cal.test/broken.ics';
+  const seen = [];
+  global.fetch = async (u) => {
+    seen.push(u);
+    if (u.includes('broken')) return { ok: false, status: 404 };
+    const who = u.includes('allison') ? 'Recital' : 'Dentist';
+    return { ok: true, text: async () => `BEGIN:VCALENDAR\nX-WR-CALNAME:Ben Presley\nBEGIN:VEVENT\nSUMMARY:${who}\nDTSTART:${soon}\nEND:VEVENT\nEND:VCALENDAR` };
+  };
+  res = mkRes(); await cal(req('/api/calendar', ck), res);
+  assert.deepStrictEqual(seen.sort(), ['https://cal.test/allison.ics', 'https://cal.test/broken.ics', 'https://cal.test/mine.ics']);
+  assert.deepStrictEqual(res.body.calendars.map((c) => [c.name, !!c.error]), [['Ben Presley', false], ['Allison', false], ['Calendar 4', true]]);
+  assert.deepStrictEqual(res.body.events.map((e) => [e.title, e.cal]).sort(), [['Dentist', 0], ['Recital', 1]]);
+});
