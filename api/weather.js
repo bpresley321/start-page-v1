@@ -1,5 +1,6 @@
 'use strict';
 const { describe, parseCity, pickPlace } = require('../lib/weather');
+const { stormRisk } = require('../lib/storm');
 
 async function getJson(url) {
   const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
@@ -17,6 +18,8 @@ module.exports = async (req, res) => {
     );
     const place = pickPlace(geo.results, region);
     if (!place) return res.status(404).json({ error: `No place found for "${q}"` });
+    const inUS = place.country_code ? place.country_code === 'US' : true;
+    const storm = inUS ? stormRisk(place.latitude, place.longitude) : Promise.resolve(null);
     const w = await getJson(
       'https://api.open-meteo.com/v1/forecast' +
         `?latitude=${place.latitude}&longitude=${place.longitude}` +
@@ -40,6 +43,7 @@ module.exports = async (req, res) => {
         hi: Math.round(d.temperature_2m_max[i]),
         lo: Math.round(d.temperature_2m_min[i]),
       })),
+      storm: await storm,
     });
   } catch (e) {
     return res.status(502).json({ error: 'Weather is unavailable right now' });

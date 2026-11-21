@@ -52,7 +52,8 @@ test('weather: geocodes with state filter then shapes the forecast', async () =>
   const res = mkRes();
   await require('../api/weather')({ url: '/api/weather?city=Fort%20Worth%2C%20TX' }, res);
   assert.strictEqual(res.code, 200);
-  assert.match(calls[1], /latitude=32\.75/);
+  assert.match(calls.find((u) => u.includes('api.open-meteo.com/v1/forecast')), /latitude=32\.75/);
+  assert.ok(calls.some((u) => u.includes('spc.noaa.gov/products/outlook/day1otlk_cat')));
   assert.deepStrictEqual(res.body.now, { temp: 54, feels: 50, wind: 11, text: 'Partly cloudy' });
   assert.strictEqual(res.body.place, 'Fort Worth, Texas');
   assert.strictEqual(res.body.days[1].text, 'Rain');

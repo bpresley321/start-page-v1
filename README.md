@@ -56,3 +56,6 @@ The first save each day copies your page as it stood (start of that day) to a ba
 
 ## Purgatory snow report
 The webcam card shows new snow, base, season total, lifts and trails, read from purgatory.ski's conditions page every 15 minutes (lib/snow.js). Off-season, or if the resort changes its page, the card says so and the Full report link still works.
+
+## Storm risk badge
+The Weather card shows the Storm Prediction Center's severe-weather outlook (today and tomorrow) for the open city tab, from SPC's categorical outlook GeoJSON (lib/storm.js). It refreshes with the weather; tapping it opens SPC's outlook page. US cities only.

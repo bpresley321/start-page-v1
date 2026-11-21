@@ -183,6 +183,11 @@ body.locked .gate{display:flex}body.locked #app{visibility:hidden}
 .cam{aspect-ratio:16/9;background:#000;border-radius:8px;overflow:hidden}
 .cam iframe{display:block;width:100%;height:100%;border:0}
 .snow{margin:0 0 6px}
+.storm{display:flex;flex-wrap:wrap;align-items:center;gap:3px 4px;margin:6px 0 4px;font-size:.85em;color:var(--muted);text-decoration:none}
+.storm .risk{margin-right:4px;font-weight:600;padding:0 6px;border-radius:99px;color:#1d2a1d;border:1px solid rgba(0,0,0,.08)}
+.storm .risk.none{background:var(--accent-soft);color:var(--muted)}
+.storm .lbl{margin-right:2px}.storm.alert .lbl{font-weight:700;color:var(--ink)}
+.storm:hover .risk{border-color:rgba(0,0,0,.35)}
 .snow-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(38px,1fr));gap:3px}
 .snow-grid div{display:flex;flex-direction:column;align-items:center;padding:3px 2px;border-radius:6px;background:var(--accent-soft);line-height:1.15}
 .snow-grid b{font-size:1.05em;font-variant-numeric:tabular-nums}
@@ -446,12 +451,22 @@ function tasksCard(){
   ${d?`<button class="btn sm" data-act="cleardone" type="button" style="margin-top:6px">Clear completed</button>`:''}
   </section>`;
 }
+function stormRow(st){
+  if(!st) return '';
+  const chip=(day,r)=>{
+    if(!r) return '';
+    const txt=r.none?'None':r.level?`${r.name} ${r.level}/5`:'T-storms';
+    return `<span>${day}</span><span class="risk${r.none?' none':''}"${r.none?'':` style="background:${r.color}"`}>${esc(txt)}</span>`;
+  };
+  const worst=Math.max(...[st.today,st.tomorrow].map(r=>r&&!r.none?r.level:-1));
+  return `<a class="storm${worst>=2?' alert':''}" href="https://www.spc.noaa.gov/products/outlook/" target="_blank" rel="noopener" title="Storm Prediction Center severe weather outlook"><span class="lbl">Storms:</span>${chip('Today',st.today)}${chip('Tmrw',st.tomorrow)}</a>`;
+}
 function weatherCard(){
   const w=cache.weather;
   let body='<div class="empty">Loading…</div>';
   if(w&&w.error) body=`<div class="empty" role="alert">${esc(w.error)}</div>`;
   else if(w) body=`<div class="wx-now"><div class="wx-temp">${w.now.temp}°</div><div class="wx-meta"><b>${esc(w.now.text)}</b><br>Feels ${w.now.feels}° · Wind ${w.now.wind} mph</div></div>
-    <div class="forecast">${w.days.map(d=>`<div><span>${new Date(d.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short'})}</span><b>${d.hi}°</b><span>${d.lo}°</span><small>${esc(d.text)}</small></div>`).join('')}</div>`;
+    ${stormRow(w.storm)}<div class="forecast">${w.days.map(d=>`<div><span>${new Date(d.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short'})}</span><b>${d.hi}°</b><span>${d.lo}°</span><small>${esc(d.text)}</small></div>`).join('')}</div>`;
   return `<section class="card" aria-labelledby="h-wx"><h2 id="h-wx">Weather${w&&w.place?`<span class="tag">${esc(w.place)}</span>`:''}</h2>
   <div class="wtabs" role="tablist" aria-label="Cities">${S.cities.map((c,i)=>`<span class="wtab${c===S.city?' on':''}"><button type="button" role="tab" aria-selected="${c===S.city}" data-act="wxtab" data-i="${i}" title="${esc(c)}">${esc(c.split(',')[0])}</button>${S.cities.length>1?`<button type="button" class="wx-x edit-only flex" data-act="wxdel" data-i="${i}" aria-label="Remove ${esc(c)}">×</button>`:''}</span>`).join('')}${S.cities.length<MAX_CITIES?`<button type="button" class="wtab-add${addingCity?' on':''}" data-act="wxadd" aria-label="Add a city" aria-expanded="${addingCity}">+</button>`:''}</div>
   ${addingCity?`<form class="city" data-form="city"><input id="city-input" aria-label="New city" placeholder="City, State (e.g. Durango, CO)" autocomplete="off"><button class="btn sm" type="submit">Add</button></form>`:''}${body}</section>`;
