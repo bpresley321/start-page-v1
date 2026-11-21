@@ -182,6 +182,11 @@ body.locked .gate{display:flex}body.locked #app{visibility:hidden}
 .pill{font:700 9.5px var(--body);letter-spacing:.04em;background:var(--warn);color:#fff;padding:1px 6px;border-radius:99px}
 .cam{aspect-ratio:16/9;background:#000;border-radius:8px;overflow:hidden}
 .cam iframe{display:block;width:100%;height:100%;border:0}
+.snow{margin:0 0 6px}
+.snow-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(38px,1fr));gap:3px}
+.snow-grid div{display:flex;flex-direction:column;align-items:center;padding:3px 2px;border-radius:6px;background:var(--accent-soft);line-height:1.15}
+.snow-grid b{font-size:1.05em;font-variant-numeric:tabular-nums}
+.snow-grid span{font-size:.75em;color:var(--muted);white-space:nowrap}
 .camnote{margin-top:5px;color:var(--muted);font-size:.9em}.camnote a{color:var(--accent);text-decoration:underline}
 </style>
 </head>
@@ -245,6 +250,11 @@ body.locked .gate{display:flex}body.locked #app{visibility:hidden}
     <div class="status" id="g-setup" hidden>Google sign-in isn't set up yet. When you add it in Google Cloud, use this redirect address: <div class="code" id="g-redirect"></div></div>
     </div>
     <div class="status" id="sync-status" role="status"></div>
+    <div id="bk-ui" hidden>
+      <label for="s-bk">Daily backups: your page as it was at the start of each day you changed something (kept 30 days)<select id="s-bk"></select></label>
+      <div class="row"><button type="button" class="btn" id="s-bk-go">Restore this backup</button></div>
+      <div class="status" id="bk-status" role="status"></div>
+    </div>
     <label for="s-io">Backup (copy this text to save, paste to restore)<textarea id="s-io" spellcheck="false"></textarea></label>
     <div class="row">
       <button type="button" class="btn" id="s-copy">Copy backup</button>
@@ -363,9 +373,9 @@ function signedOut(){ auth.signedIn=false; lock(true,'Your sign-in expired. Plea
 let pushTimer=null, pushing=false, again=false, syncMsg=pass?'Sync is on.':'Sync is off on this device.';
 function syncStatus(m){ syncMsg=m; const el=$('#sync-status'); if(el) el.textContent=m; }
 function dropPass(){ pass=''; try{ localStorage.removeItem('startpage-pass'); }catch(e){} }
-async function api(method,body){
+async function api(method,body,path){
   const h={'content-type':'application/json'}; if(!auth.configured&&pass) h['x-sync-passcode']=pass;
-  const r=await fetch('/api/data',{method,headers:h,credentials:'same-origin',body:body?JSON.stringify(body):undefined});
+  const r=await fetch(path||'/api/data',{method,headers:h,credentials:'same-origin',body:body?JSON.stringify(body):undefined});
   const j=await r.json().catch(()=>({}));
   return {status:r.status,j};
 }
@@ -425,7 +435,7 @@ function colOf(g){ const c=+g.col; return c>=1&&c<=4?c:3; }
 function ago(iso){ if(!iso) return ''; const m=Math.round((Date.now()-new Date(iso))/60000); if(m<1) return 'now'; if(m<60) return m+' min ago'; const h=Math.round(m/60); if(h<24) return h+' hr ago'; return Math.round(h/24)+' d ago'; }
 
 /* ---------- cards ---------- */
-const cache={weather:null,wx:{},news:{},sports:null,cal:null};
+const cache={weather:null,wx:{},news:{},sports:null,cal:null,snow:null};
 let addingCity=false;
 function tasksCard(){
   const d=S.tasks.filter(t=>t.done).length, n=S.tasks.length;
@@ -552,7 +562,8 @@ function render(){
   if(on) bar.scrollLeft=Math.max(0,on.offsetLeft-bar.offsetLeft-bar.clientWidth/2+on.offsetWidth/2);
 }
 const CAM={name:'Purgatory snow stake',url:'https://player.brownrice.com/embed/purgatorysnowstake1/live'};
-$('#cam-host').innerHTML=`<section class="card" aria-label="Webcam"><h2>Webcam <span class="tag">${esc(CAM.name)}</span></h2>
+$('#cam-host').innerHTML=`<section class="card" aria-labelledby="h-purg"><h2 id="h-purg">Purgatory<a class="tag" href="https://www.purgatory.ski/mountain/weather-conditions-webcams/" target="_blank" rel="noopener">Full report</a></h2>
+  <div id="snow" class="snow" aria-live="polite"><div class="empty">Loading snow report…</div></div>
   <div class="cam"><iframe src="${esc(CAM.url)}" title="${esc(CAM.name)} webcam" loading="lazy" allow="fullscreen; autoplay" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
   <div class="camnote">Blank? The camera may block embedding. <a href="${esc(CAM.url)}" target="_blank" rel="noopener">Open it in a new tab</a></div></section>`;
 
@@ -568,6 +579,14 @@ async function loadWeather(force){
   if(S.city===c) cache.weather=d;   // ignore a slow reply for a tab that is no longer open
   softRender();
 }
+function renderSnow(){
+  const el=$('#snow'), d=cache.snow; if(!el) return;
+  if(!d){ el.innerHTML='<div class="empty">Loading snow report…</div>'; return; }
+  if(d.error||!d.report){ el.innerHTML=`<div class="empty">${d.error?esc(d.error):'No snow report right now (likely off-season).'}</div>`; return; }
+  const r=d.report, cell=(v,l)=>v==null?'':`<div><b>${v}</b><span>${l}</span></div>`, inch=v=>v==null?null:v+'″', of=x=>x?x.open+'/'+x.total:null;
+  el.innerHTML=`<div class="snow-grid">${cell(inch(r.new24),'24 hr')}${cell(inch(r.new7d),'7 day')}${cell(inch(r.base),'Base')}${cell(inch(r.season),'Season')}${cell(of(r.lifts),'Lifts')}${cell(of(r.trails),'Trails')}</div>`;
+}
+async function loadSnow(){ cache.snow=await getJson('/api/snow').catch(()=>({error:'Snow report is unavailable right now'})); renderSnow(); }
 async function loadCalendar(){ if(!auth.signedIn) return; cache.cal=await getJson('/api/calendar').catch(()=>({error:'Calendar is unavailable right now'})); softRender(); }
 async function loadSports(){ cache.sports=await getJson('/api/sports').catch(()=>({error:'Scores are unavailable right now'})); softRender(); }
 async function loadNews(key){ cache.news[key]=null; softRender(); cache.news[key]=await getJson('/api/news?feed='+key).catch(()=>({error:'Could not load this feed'})); softRender(); }
@@ -676,6 +695,7 @@ $('#f-add').addEventListener('submit',e=>{
 $('#btn-set').onclick=()=>{
   $('#g-ui').hidden=!auth.signedIn; $('#pass-ui').hidden=auth.configured;
   $('#g-who').textContent=auth.signedIn?'Signed in with Google as '+auth.email+'. Sync is on.':'';
+  loadBackups();
   $('#g-setup').hidden=auth.configured||!auth.redirectUri; $('#g-redirect').textContent=auth.redirectUri||'';
   $('#s-city').value=S.city; $('#s-size').value=S.size||'small'; $('#s-io').value=JSON.stringify(S); $('#s-status').textContent=''; $('#s-pass').value=''; $('#s-pass').placeholder=pass?'Saved on this device':'Same passcode on every device'; syncStatus(syncMsg); open('#sc-set');
 };
@@ -683,6 +703,28 @@ $('#s-connect').onclick=async()=>{
   const v=$('#s-pass').value; if(!v){ syncStatus('Enter your passcode first.'); return; }
   pass=v; try{ localStorage.setItem('startpage-pass',pass); }catch(e){}
   $('#s-pass').value=''; $('#s-pass').placeholder='Saved on this device'; syncStatus('Connecting…'); await pull();
+};
+async function loadBackups(){
+  const ui=$('#bk-ui'), sel=$('#s-bk'), go=$('#s-bk-go');
+  ui.hidden=!syncOn(); go.dataset.armed=''; go.textContent='Restore this backup'; $('#bk-status').textContent='';
+  if(!syncOn()) return;
+  sel.innerHTML='<option>Loading…</option>'; go.disabled=true;
+  const {status,j}=await api('GET',null,'/api/data?backups').catch(()=>({status:0,j:{}}));
+  if(status!==200){ sel.innerHTML='<option>Backups are unavailable right now</option>'; return; }
+  const opts=j.backups.map(d=>`<option value="${d}">${fromKey(d).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}${d===lkey(new Date())?' (start of today)':''}</option>`);
+  if(j.beforeRestore) opts.unshift('<option value="before-restore">Just before the last restore</option>');
+  sel.innerHTML=opts.join('')||'<option>No backups yet — one is made the first time you change something each day</option>';
+  go.disabled=!opts.length;
+}
+$('#s-bk').onchange=()=>{ const go=$('#s-bk-go'); go.dataset.armed=''; go.textContent='Restore this backup'; };
+$('#s-bk-go').onclick=async()=>{
+  const go=$('#s-bk-go'), id=$('#s-bk').value;
+  if(!go.dataset.armed){ go.dataset.armed='1'; go.textContent='Tap again to replace your page with this backup'; return; }
+  go.disabled=true; $('#bk-status').textContent='Restoring…';
+  clearTimeout(pushTimer);
+  const {status,j}=await api('POST',{restore:id}).catch(()=>({status:0,j:{}}));
+  if(status===200){ adopt(j); $('#s-io').value=JSON.stringify(S); $('#bk-status').textContent='Restored. Your other devices will pick it up next time they open the page.'; loadBackups().then(()=>$('#bk-status').textContent='Restored. Your other devices pick it up next time they open the page.'); }
+  else { $('#bk-status').textContent=j.error||"Couldn't restore right now."; go.disabled=false; go.dataset.armed=''; go.textContent='Restore this backup'; }
 };
 $('#s-signout').onclick=async()=>{
   const b=$('#s-signout'); b.disabled=true; b.textContent='Signing out…';
@@ -709,9 +751,10 @@ $('#s-import').onclick=()=>{
   }catch(e){ $('#s-status').textContent='That text is not a valid backup.'; }
 };
 
-migrate(); render(); loadWeather(); loadSports(); NEWS.forEach(n=>loadNews(n[0])); checkAuth();
+migrate(); render(); loadWeather(); loadSports(); NEWS.forEach(n=>loadNews(n[0])); checkAuth(); loadSnow();
 setInterval(loadSports,5*60*1000);
 setInterval(loadCalendar,10*60*1000);
+setInterval(loadSnow,15*60*1000);
 setInterval(()=>{ loadWeather(true); NEWS.forEach(n=>loadNews(n[0])); },15*60*1000);
 </script>
 </body>

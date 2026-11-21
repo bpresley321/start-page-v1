@@ -50,3 +50,9 @@ Only the `openid email` scopes are requested, so Google's app verification isn't
 The Calendar card (top of column 4) shows the next 7 days from up to 9 calendars, only when you're signed in with Google.
 In Google Calendar (on a computer): Settings → pick the calendar → **Integrate calendar** → copy the **Secret address in iCal format** (your own calendars) or **Public address in iCal format** (public ones). Then in Vercel add `CALENDAR_1`, `CALENDAR_2`, … with those addresses and redeploy. The card uses each calendar's own name; to use a different one, write `Name|address`.
 Calendars are re-read every 10 minutes. Repeating events, cancellations and moved events are handled.
+
+## Daily backups
+The first save each day copies your page as it stood (start of that day) to a backup kept 31 days. Settings → Daily backups lists them; Restore replaces your page on every device. A restore first saves the current page as "Just before the last restore", so it can be undone.
+
+## Purgatory snow report
+The webcam card shows new snow, base, season total, lifts and trails, read from purgatory.ski's conditions page every 15 minutes (lib/snow.js). Off-season, or if the resort changes its page, the card says so and the Full report link still works.

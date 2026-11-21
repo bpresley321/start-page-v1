@@ -20,9 +20,13 @@ test.beforeEach(() => {
   global.fetch = async (url, opts) => {
     assert.strictEqual(url, 'https://redis.test');
     assert.strictEqual(opts.headers.Authorization, 'Bearer tok');
-    const [cmd, key, val] = JSON.parse(opts.body);
+    const [cmd, key, val, ...flags] = JSON.parse(opts.body);
     if (cmd === 'GET') return { ok: true, json: async () => ({ result: store[key] ?? null }) };
-    if (cmd === 'SET') { store[key] = val; return { ok: true, json: async () => ({ result: 'OK' }) }; }
+    if (cmd === 'SET') {
+      if (flags.includes('NX') && key in store) return { ok: true, json: async () => ({ result: null }) };
+      store[key] = val; return { ok: true, json: async () => ({ result: 'OK' }) };
+    }
+    if (cmd === 'KEYS') { const pre = key.replace(/\*$/, ''); return { ok: true, json: async () => ({ result: Object.keys(store).filter((k) => k.startsWith(pre)) }) }; }
     throw new Error('unexpected ' + cmd);
   };
 });
@@ -87,4 +91,27 @@ test('data: the passcode can come from HOME_PASSWORD', async () => {
   assert.strictEqual(res.code, 200);
   res = mkRes(); await handler()(req('GET', null, 'open-sesame'), res);
   assert.strictEqual(res.code, 401);
+});
+
+test('data: first save of the day keeps a start-of-day backup; restore is undoable', async () => {
+  const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(new Date());
+  let res = mkRes(); await handler()(req('PUT', state(1, 'first')), res);
+  assert.deepStrictEqual(Object.keys(store), ['startpage:state']);           // nothing to back up yet
+  res = mkRes(); await handler()(req('PUT', state(2, 'second')), res);
+  res = mkRes(); await handler()(req('PUT', state(3, 'oops')), res);
+  assert.strictEqual(JSON.parse(store['startpage:backup:' + day]).data.groups[0].name, 'first'); // start of day, not overwritten
+  store['startpage:backup:2026-11-01'] = JSON.stringify(state(0, 'old'));
+
+  res = mkRes(); await handler()({ method: 'GET', url: '/api/data?backups', headers: { 'x-sync-passcode': 'open-sesame' } }, res);
+  assert.deepStrictEqual(res.body, { backups: [day, '2026-11-01'], beforeRestore: false });
+
+  res = mkRes(); await handler()(req('POST', { restore: '../state' }), res);
+  assert.strictEqual(res.code, 400);
+  res = mkRes(); await handler()(req('POST', { restore: '2026-10-01' }), res);
+  assert.strictEqual(res.code, 404);
+  res = mkRes(); await handler()(req('POST', { restore: day }), res);
+  assert.strictEqual(res.body.data.groups[0].name, 'first');
+  assert.ok(res.body.updated > 3);                                           // newer than every device, so it wins sync
+  assert.strictEqual(JSON.parse(store['startpage:state']).data.groups[0].name, 'first');
+  assert.strictEqual(JSON.parse(store['startpage:backup:before-restore']).data.groups[0].name, 'oops');
 });

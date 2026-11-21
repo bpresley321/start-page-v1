@@ -7,6 +7,13 @@ const A = require('../lib/auth');
 
 const KEY = 'startpage:state';
 const MAX_BYTES = 400000;
+// Daily backups: the first save of each day first copies the saved data as it stood (the start of that day)
+// to startpage:backup:YYYY-MM-DD, kept 31 days. A restore first copies the current data to
+// startpage:backup:before-restore, so a restore can itself be undone.
+const BACKUP = 'startpage:backup:';
+const KEEP_SECONDS = 31 * 86400;
+const PRE_RESTORE = 'before-restore';
+function today() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(new Date()); }
 
 function redisConfig() {
   const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
@@ -48,7 +55,7 @@ module.exports = async (req, res) => {
     // Once Google sign-in is set up, the passcode is no longer accepted.
     if (!A.readSession(google, A.cookies(req)[A.SESSION_COOKIE])) return res.status(401).json({ error: 'Sign in required', signin: true });
     // Cookie-authenticated writes must be JSON so another site cannot send them as a plain form.
-    if (req.method === 'PUT' && !/^application\/json/i.test(String(req.headers['content-type'] || ''))) {
+    if ((req.method === 'PUT' || req.method === 'POST') && !/^application\/json/i.test(String(req.headers['content-type'] || ''))) {
       return res.status(415).json({ error: 'JSON required' });
     }
   } else if (!samePasscode(req.headers['x-sync-passcode'] || '', pass)) {
@@ -57,6 +64,12 @@ module.exports = async (req, res) => {
   }
 
   try {
+    if (req.method === 'GET' && new URL(req.url || '/', 'http://x').searchParams.has('backups')) {
+      const keys = (await redis(cfg, ['KEYS', BACKUP + '*'])) || [];
+      const ids = keys.map((k) => k.slice(BACKUP.length));
+      const days = ids.filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().reverse();
+      return res.status(200).json({ backups: days, beforeRestore: ids.includes(PRE_RESTORE) });
+    }
     if (req.method === 'GET') {
       const raw = await redis(cfg, ['GET', KEY]);
       if (!raw) return res.status(200).json({ empty: true });
@@ -74,10 +87,22 @@ module.exports = async (req, res) => {
           return res.status(409).json(existing);
         }
       }
+      if (existingRaw) await redis(cfg, ['SET', BACKUP + today(), existingRaw, 'NX', 'EX', KEEP_SECONDS]);
       await redis(cfg, ['SET', KEY, text]);
       return res.status(200).json({ ok: true });
     }
-    res.setHeader('Allow', 'GET, PUT');
+    if (req.method === 'POST') {
+      const id = String(req.body && req.body.restore || '');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(id) && id !== PRE_RESTORE) return res.status(400).json({ error: 'Pick a backup' });
+      const raw = await redis(cfg, ['GET', BACKUP + id]);
+      if (!raw) return res.status(404).json({ error: 'That backup is gone' });
+      const current = await redis(cfg, ['GET', KEY]);
+      if (current) await redis(cfg, ['SET', BACKUP + PRE_RESTORE, current, 'EX', KEEP_SECONDS]);
+      const restored = { data: JSON.parse(raw).data, updated: Date.now() };
+      await redis(cfg, ['SET', KEY, JSON.stringify(restored)]);
+      return res.status(200).json(restored);
+    }
+    res.setHeader('Allow', 'GET, PUT, POST');
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (e) {
     return res.status(502).json({ error: 'Could not reach the database' });
