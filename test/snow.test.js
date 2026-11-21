@@ -31,3 +31,8 @@ test('snow: handles "in" units and slash counts', () => {
   const r = parseSnow('<b>12 in</b> 24 Hours <b>40 in.</b> Base Depth <b>8/12</b> Lifts Open');
   assert.deepStrictEqual([r.new24, r.base, r.lifts], [12, 40, { open: 8, total: 12 }]);
 });
+
+test('snow: whole-mountain count wins over area counts listed first', () => {
+  const r = parseSnow('<p>3″ 24 Hr</p><h3>Frontside</h3><p>5/57 Trails Open</p><h3>Backside</h3><p>0/51 Trails Open</p><p>1/9 Lifts Open</p><div>5 of 114</div><div>Trails Open</div><div>1 of 12 Lifts Open</div>');
+  assert.deepStrictEqual([r.trails, r.lifts], [{ open: 5, total: 114 }, { open: 1, total: 12 }]);
+});
