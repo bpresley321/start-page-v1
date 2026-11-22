@@ -46,7 +46,7 @@ test('weather: geocodes with state filter then shapes the forecast', async () =>
       { name: 'Fort Worth', admin1: 'Ohio', latitude: 1, longitude: 1 },
       { name: 'Fort Worth', admin1: 'Texas', latitude: 32.75, longitude: -97.33 }] }) };
     return { ok: true, json: async () => ({
-      current: { temperature_2m: 54.4, apparent_temperature: 50.2, weather_code: 2, wind_speed_10m: 11.3 },
+      current: { temperature_2m: 54.4, apparent_temperature: 50.2, weather_code: 2, wind_speed_10m: 11.3, wind_direction_10m: 202.6, wind_gusts_10m: 19.8 },
       daily: { time: ['2026-11-01', '2026-11-02'], weather_code: [0, 63], temperature_2m_max: [58.1, 49], temperature_2m_min: [41, 38.5] } }) };
   };
   const res = mkRes();
@@ -54,7 +54,8 @@ test('weather: geocodes with state filter then shapes the forecast', async () =>
   assert.strictEqual(res.code, 200);
   assert.match(calls.find((u) => u.includes('api.open-meteo.com/v1/forecast')), /latitude=32\.75/);
   assert.ok(calls.some((u) => u.includes('spc.noaa.gov/products/outlook/day1otlk_cat')));
-  assert.deepStrictEqual(res.body.now, { temp: 54, feels: 50, wind: 11, text: 'Partly cloudy' });
+  assert.deepStrictEqual(res.body.now, { temp: 54, feels: 50, wind: 11, windDir: 203, gust: 20, text: 'Partly cloudy' });
+  assert.match(calls.find((u) => u.includes('/v1/forecast')), /wind_direction_10m,wind_gusts_10m/);
   assert.strictEqual(res.body.place, 'Fort Worth, Texas');
   assert.strictEqual(res.body.days[1].text, 'Rain');
 });

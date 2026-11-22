@@ -130,6 +130,12 @@ input[type=text],input[type=search],input:not([type]),select,textarea{padding:6p
 .wx-now{display:flex;align-items:center;gap:12px;margin-bottom:6px}
 .wx-temp{font-family:var(--display);font-size:2.6em;font-weight:700;line-height:1;letter-spacing:-.03em}
 .wx-meta{color:var(--muted)}.wx-meta b{color:var(--ink)}
+.wbug{margin-left:auto;display:flex;flex-direction:column;align-items:center;gap:1px;color:var(--muted);font-size:.8em;line-height:1.1;text-align:center}
+.wbug svg{width:36px;height:36px}
+.wbug circle{fill:var(--accent-soft);stroke:var(--line)}
+.wbug text{font-size:6px;font-weight:700;fill:var(--muted);text-anchor:middle}
+.wbug path{fill:var(--accent)}
+.wbug b{color:var(--ink)}.wbug small{display:block;font-size:.95em}
 .forecast{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;text-align:center;color:var(--muted);border-top:1px solid var(--line);padding-top:6px}
 .forecast div{display:flex;flex-direction:column;gap:1px;align-items:center}
 .forecast b{color:var(--ink);font-variant-numeric:tabular-nums}.forecast small{font-size:.82em}
@@ -493,11 +499,19 @@ function stormRow(st){
   const worst=Math.max(...[st.today,st.tomorrow].map(r=>r&&!r.none?r.level:-1));
   return `<a class="storm${worst>=2?' alert':''}" href="https://www.spc.noaa.gov/products/outlook/" target="_blank" rel="noopener" title="Storm Prediction Center severe weather outlook"><span class="lbl">Storms:</span>${chip('Today',st.today)}${chip('Tmrw',st.tomorrow)}</a>`;
 }
+const COMPASS=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+// Wind "from" direction in degrees; the arrow points the way the wind is blowing (downwind).
+function windBug(n){
+  if(n.windDir==null) return '';
+  const from=COMPASS[Math.round(n.windDir/22.5)%16], calm=n.wind<2;
+  const tip=calm?'Calm':`Wind from the ${from} at ${n.wind} mph${n.gust>n.wind+4?', gusts '+n.gust:''}`;
+  return `<div class="wbug" title="${tip}" aria-label="${tip}"><svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="16"/><text x="18" y="6.2">N</text>${calm?'':`<g transform="rotate(${(n.windDir+180)%360} 18 18)"><path d="M18 7 L23 16 L19.4 15 L19.4 28 L16.6 28 L16.6 15 L13 16 Z"/></g>`}</svg><span>${calm?'Calm':`<b>${from} ${n.wind}</b>${n.gust>n.wind+4?`<small>gust ${n.gust}</small>`:''}`}</span></div>`;
+}
 function weatherCard(){
   const w=cache.weather;
   let body='<div class="empty">Loading…</div>';
   if(w&&w.error) body=`<div class="empty" role="alert">${esc(w.error)}</div>`;
-  else if(w) body=`<div class="wx-now"><div class="wx-temp">${w.now.temp}°</div><div class="wx-meta"><b>${esc(w.now.text)}</b><br>Feels ${w.now.feels}° · Wind ${w.now.wind} mph</div></div>
+  else if(w) body=`<div class="wx-now"><div class="wx-temp">${w.now.temp}°</div><div class="wx-meta"><b>${esc(w.now.text)}</b><br>Feels ${w.now.feels}°${w.now.windDir==null?` · Wind ${w.now.wind} mph`:''}</div>${windBug(w.now)}</div>
     ${stormRow(w.storm)}<div class="forecast">${w.days.map(d=>`<div><span>${new Date(d.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short'})}</span><b>${d.hi}°</b><span>${d.lo}°</span><small>${esc(d.text)}</small></div>`).join('')}</div>`;
   return `<section class="card" aria-labelledby="h-wx"><h2 id="h-wx">Weather${w&&w.place?`<span class="tag">${esc(w.place)}</span>`:''}</h2>
   <div class="wtabs" role="tablist" aria-label="Cities">${S.cities.map((c,i)=>`<span class="wtab${c===S.city?' on':''}"><button type="button" role="tab" aria-selected="${c===S.city}" data-act="wxtab" data-i="${i}" title="${esc(c)}">${esc(c.split(',')[0])}</button>${S.cities.length>1?`<button type="button" class="wx-x edit-only flex" data-act="wxdel" data-i="${i}" aria-label="Remove ${esc(c)}">×</button>`:''}</span>`).join('')}${S.cities.length<MAX_CITIES?`<button type="button" class="wtab-add${addingCity?' on':''}" data-act="wxadd" aria-label="Add a city" aria-expanded="${addingCity}">+</button>`:''}</div>

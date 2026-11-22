@@ -23,7 +23,7 @@ module.exports = async (req, res) => {
     const w = await getJson(
       'https://api.open-meteo.com/v1/forecast' +
         `?latitude=${place.latitude}&longitude=${place.longitude}` +
-        '&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m' +
+        '&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m' +
         '&daily=weather_code,temperature_2m_max,temperature_2m_min' +
         '&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=5'
     );
@@ -35,6 +35,8 @@ module.exports = async (req, res) => {
         temp: Math.round(c.temperature_2m),
         feels: Math.round(c.apparent_temperature),
         wind: Math.round(c.wind_speed_10m),
+        windDir: typeof c.wind_direction_10m === 'number' ? Math.round(c.wind_direction_10m) : null,
+        gust: typeof c.wind_gusts_10m === 'number' ? Math.round(c.wind_gusts_10m) : null,
         text: describe(c.weather_code),
       },
       days: d.time.map((date, i) => ({
