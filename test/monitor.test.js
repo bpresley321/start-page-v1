@@ -98,3 +98,16 @@ test('spy: Yahoo quote, colors by daily move, Stooq fallback', () => {
   assert.strictEqual(M.spyFromStooq('No data'), null);
   assert.strictEqual(M.spyRow(null).status, 'gray');
 });
+
+test('stickers: every row has a short label and value', () => {
+  const rows = [
+    M.nwsRow({ features: [] }, place, NOW),
+    M.stormRow({ none: true }, { level: 2, name: 'Slight' }, place),
+    M.lakeRow({ pct: 57.62, date: '2026-11-21', level: null, change7: null }),
+    M.aqiRow({ current: { us_aqi: 41 } }),
+    M.airportRow('<x></x>'),
+    M.spyRow({ price: 101.2, prev: 100, source: 'x' }),
+    M.lakeRow(null),
+  ];
+  assert.deepStrictEqual(rows.map((r) => r.label + ' ' + r.short), ['NWS None', 'Storms Tmrw Slight', 'Lake 57.6%', 'AQI 41', 'DFW On time', 'SPY +1.2%', 'Lake n/a']);
+});
