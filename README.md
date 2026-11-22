@@ -59,3 +59,13 @@ The webcam card shows new snow, base, season total, lifts and trails, read from 
 
 ## Storm risk badge
 The Weather card shows the Storm Prediction Center's severe-weather outlook (today and tomorrow) for the open city tab, from SPC's categorical outlook GeoJSON (lib/storm.js). It refreshes with the weather; tapping it opens SPC's outlook page. US cities only.
+
+## Monitoring tab
+`#monitoring` shows a Conditions table from `/api/monitor` (lib/monitor.js), refreshed every 10 minutes and whenever the open weather city changes. The tab shows a count of yellow/red rows.
+| Row | Source | Green / yellow / red |
+| --- | --- | --- |
+| NWS alerts (open weather city) | api.weather.gov active alerts | none / watch or advisory / warning |
+| Storm risk (open weather city) | SPC Day 1–2 categorical outlook | ≤ Marginal / Slight / Enhanced+ |
+| Lake Weatherford | waterdatafortexas.org (30-day CSV; page title as fallback) | ≥ 80% / 50–80% / < 50% |
+| Air quality, DFW | Open-Meteo US AQI (model) | ≤ 50 / 51–100 / > 100, now or next 24 h |
+| DFW airport | FAA NAS status (nasstatus.faa.gov) | no delays / arrival-departure delays or closure / ground stop or delay program |

@@ -161,6 +161,16 @@ body.locked .gate{display:flex}body.locked #app,body.locked #mon,body.locked .pt
 .ptabs a[aria-current="page"]{background:var(--panel);border-color:var(--line);color:var(--ink)}
 .ptabs a:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .mon{max-width:900px}
+.mrow{display:grid;grid-template-columns:14px minmax(110px,170px) 1fr auto;gap:2px 10px;align-items:baseline;padding:8px 2px;border-bottom:1px solid var(--line)}
+.mrow:last-child{border-bottom:0}
+.mrow .dot{width:11px;height:11px;border-radius:50%;align-self:center}
+.mrow .t{font-weight:600}
+.mrow .v{font-weight:700}
+.mrow .d{grid-column:3;color:var(--muted);font-size:.9em}
+.mrow a{grid-row:1;grid-column:4;color:var(--accent);text-decoration:none;font-size:.9em;font-weight:600;white-space:nowrap}
+@media (max-width:560px){.mrow{grid-template-columns:14px 1fr auto}.mrow .v,.mrow .d{grid-column:2}.mrow a{grid-column:3}}
+.st-green{background:#1f9d55}.st-yellow{background:#e0a100}.st-red{background:#d64545}.st-gray{background:#9aa5ae}
+.mbadge{display:inline-block;margin-left:6px;min-width:18px;padding:0 6px;border-radius:99px;color:#fff;font-size:11px;line-height:18px;text-align:center;vertical-align:1px}
 body.on-mon #btn-add,body.on-mon #btn-edit{display:none}
 .gate .panel{max-width:360px;text-align:center;align-items:center}
 .gate p{margin:0;color:var(--muted)}
@@ -232,12 +242,12 @@ body.on-mon #btn-add,body.on-mon #btn-edit{display:none}
     </div>
   </div>
 </header>
-<nav class="ptabs" id="ptabs" aria-label="Pages"><a href="#home" id="tab-home">Home</a><a href="#monitoring" id="tab-mon">Monitoring</a></nav>
+<nav class="ptabs" id="ptabs" aria-label="Pages"><a href="#home" id="tab-home">Home</a><a href="#monitoring" id="tab-mon">Monitoring<span class="mbadge" id="mon-badge" hidden></span></a></nav>
 
 <div class="wrap" id="app"><main class="cols" id="cols"><div class="col" id="c1"><div class="col" id="c1-top"></div><div id="cam-host"></div><div class="col" id="c1-bottom"></div></div><div class="col" id="c2"></div><div class="col" id="c3"></div><div class="col" id="c4"></div></main></div>
 <div class="wrap" id="mon" hidden><main class="mon">
-  <section class="card" aria-labelledby="h-mon"><h2 id="h-mon">Monitoring</h2>
-    <div class="empty">Nothing is being monitored yet. Watches for weather, water, snow and campgrounds will live here, with a summary on Home.</div>
+  <section class="card" aria-labelledby="h-mon"><h2 id="h-mon">Conditions<span class="tag" id="mon-when"></span></h2>
+    <div id="mon-rows" aria-live="polite"><div class="empty">Loading…</div></div>
   </section>
 </main></div>
 <div class="gate" id="gate" role="dialog" aria-modal="true" aria-labelledby="gate-h"><div class="panel"><h3 id="gate-h">Sign in to your start page</h3><p>Your links, tasks and settings load after you sign in.</p><a class="gbtn" href="/api/auth/login"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2c-2 1.5-4.5 2.4-7.2 2.4-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>Sign in with Google</a><div class="err" id="gate-err" role="alert"></div></div></div>
@@ -453,7 +463,7 @@ function colOf(g){ const c=+g.col; return c>=1&&c<=4?c:3; }
 function ago(iso){ if(!iso) return ''; const m=Math.round((Date.now()-new Date(iso))/60000); if(m<1) return 'now'; if(m<60) return m+' min ago'; const h=Math.round(m/60); if(h<24) return h+' hr ago'; return Math.round(h/24)+' d ago'; }
 
 /* ---------- cards ---------- */
-const cache={weather:null,wx:{},news:{},sports:null,cal:null,snow:null};
+const cache={weather:null,wx:{},news:{},sports:null,cal:null,snow:null,mon:null};
 let addingCity=false;
 function tasksCard(){
   const d=S.tasks.filter(t=>t.done).length, n=S.tasks.length;
@@ -599,6 +609,7 @@ $('#cam-host').innerHTML=`<section class="card" aria-labelledby="h-purg"><h2 id=
 async function getJson(url){ const r=await fetch(url); const j=await r.json().catch(()=>({})); if(!r.ok) return {error:j.error||'Could not load'}; return j; }
 function softRender(){ const a=document.activeElement; if(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return; render(); }
 async function loadWeather(force){
+  loadMonitor();
   const c=S.city||'', hit=cache.wx[c];
   if(!force&&hit&&Date.now()-hit.t<5*60*1000){ cache.weather=hit.d; softRender(); return; }
   cache.weather=null; softRender();
@@ -615,6 +626,28 @@ function renderSnow(){
   el.innerHTML=`<div class="snow-grid">${cell(inch(r.new24),'24 hr')}${cell(inch(r.new7d),'7 day')}${cell(inch(r.base),'Base')}${cell(inch(r.season),'Season')}${cell(of(r.lifts),'Lifts')}${cell(of(r.trails),'Trails')}</div>`;
 }
 async function loadSnow(){ cache.snow=await getJson('/api/snow').catch(()=>({error:'Snow report is unavailable right now'})); renderSnow(); }
+let monCity=null, monBusy=false;
+function renderMon(){
+  const d=cache.mon, box=$('#mon-rows'), badge=$('#mon-badge');
+  if(!box) return;
+  if(!d){ box.innerHTML='<div class="empty">Loading…</div>'; return; }
+  if(d.error){ box.innerHTML=`<div class="empty" role="alert">${esc(d.error)} <button class="btn sm" type="button" id="mon-retry">Retry</button></div>`; $('#mon-retry').onclick=()=>loadMonitor(true); badge.hidden=true; return; }
+  const words={green:'OK',yellow:'Heads up',red:'Alert',gray:'No data'};
+  box.innerHTML=d.rows.map(r=>`<div class="mrow"><span class="dot st-${r.status}" role="img" aria-label="${words[r.status]||''}"></span><span class="t">${esc(r.title)}</span><span class="v">${esc(r.value)}</span>${r.link?`<a href="${esc(r.link)}" target="_blank" rel="noopener">Source ↗</a>`:''}<span class="d">${esc(r.detail||'')}</span></div>`).join('');
+  $('#mon-when').textContent=(d.place?d.place+' · ':'')+'checked '+new Date(d.checked).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  const hot=d.rows.filter(r=>r.status==='red'||r.status==='yellow');
+  badge.hidden=!hot.length; badge.textContent=hot.length;
+  badge.className='mbadge '+(hot.some(r=>r.status==='red')?'st-red':'st-yellow');
+  badge.title=hot.map(r=>r.title+': '+r.value).join('\n');
+}
+async function loadMonitor(force){
+  if(!force&&monCity===S.city&&(monBusy||cache.mon&&!cache.mon.error)) return;
+  const c=S.city||''; if(monCity!==c){ cache.mon=null; renderMon(); } monCity=c;
+  monBusy=true;
+  const d=await getJson('/api/monitor?city='+encodeURIComponent(c)).catch(()=>({error:'Monitoring data is unavailable right now'}));
+  monBusy=false;
+  if(S.city===c){ cache.mon=d; renderMon(); }
+}
 async function loadCalendar(){ if(!auth.signedIn) return; cache.cal=await getJson('/api/calendar').catch(()=>({error:'Calendar is unavailable right now'})); softRender(); }
 async function loadSports(){ cache.sports=await getJson('/api/sports').catch(()=>({error:'Scores are unavailable right now'})); softRender(); }
 async function loadNews(key){ cache.news[key]=null; softRender(); cache.news[key]=await getJson('/api/news?feed='+key).catch(()=>({error:'Could not load this feed'})); softRender(); }
@@ -786,10 +819,11 @@ migrate(); render(); loadWeather(); loadSports(); NEWS.forEach(n=>loadNews(n[0])
   for(const [el,on] of [[$('#tab-home'),!mon],[$('#tab-mon'),mon]]) on?el.setAttribute('aria-current','page'):el.removeAttribute('aria-current');
 }
 addEventListener('hashchange',showTab); showTab();
-checkAuth(); loadSnow();
+checkAuth(); loadSnow(); loadMonitor();
 setInterval(loadSports,5*60*1000);
 setInterval(loadCalendar,10*60*1000);
 setInterval(loadSnow,15*60*1000);
+setInterval(()=>loadMonitor(true),10*60*1000);
 setInterval(()=>{ loadWeather(true); NEWS.forEach(n=>loadNews(n[0])); },15*60*1000);
 </script>
 </body>
