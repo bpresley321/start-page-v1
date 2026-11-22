@@ -154,7 +154,14 @@ input[type=text],input[type=search],input:not([type]),select,textarea{padding:6p
 .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .status{font-size:12.5px;color:var(--muted)}
 .gate{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(8,12,30,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
-body.locked .gate{display:flex}body.locked #app{visibility:hidden}
+body.locked .gate{display:flex}body.locked #app,body.locked #mon,body.locked .ptabs{visibility:hidden}
+.ptabs{max-width:1500px;margin:8px auto 0;padding:0 10px;display:flex;gap:2px;border-bottom:1px solid var(--line)}
+.ptabs a{padding:6px 14px;margin-bottom:-1px;border:1px solid transparent;border-bottom:none;border-radius:9px 9px 0 0;color:var(--muted);font-weight:600;text-decoration:none}
+.ptabs a:hover{color:var(--ink)}
+.ptabs a[aria-current="page"]{background:var(--panel);border-color:var(--line);color:var(--ink)}
+.ptabs a:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.mon{max-width:900px}
+body.on-mon #btn-add,body.on-mon #btn-edit{display:none}
 .gate .panel{max-width:360px;text-align:center;align-items:center}
 .gate p{margin:0;color:var(--muted)}
 .gbtn{display:inline-flex;align-items:center;gap:10px;padding:9px 16px;border:1px solid var(--line);border-radius:99px;background:#fff;color:#1f1f1f;font-weight:600;text-decoration:none;font-size:15px}
@@ -225,8 +232,14 @@ body.locked .gate{display:flex}body.locked #app{visibility:hidden}
     </div>
   </div>
 </header>
+<nav class="ptabs" id="ptabs" aria-label="Pages"><a href="#home" id="tab-home">Home</a><a href="#monitoring" id="tab-mon">Monitoring</a></nav>
 
 <div class="wrap" id="app"><main class="cols" id="cols"><div class="col" id="c1"><div class="col" id="c1-top"></div><div id="cam-host"></div><div class="col" id="c1-bottom"></div></div><div class="col" id="c2"></div><div class="col" id="c3"></div><div class="col" id="c4"></div></main></div>
+<div class="wrap" id="mon" hidden><main class="mon">
+  <section class="card" aria-labelledby="h-mon"><h2 id="h-mon">Monitoring</h2>
+    <div class="empty">Nothing is being monitored yet. Watches for weather, water, snow and campgrounds will live here, with a summary on Home.</div>
+  </section>
+</main></div>
 <div class="gate" id="gate" role="dialog" aria-modal="true" aria-labelledby="gate-h"><div class="panel"><h3 id="gate-h">Sign in to your start page</h3><p>Your links, tasks and settings load after you sign in.</p><a class="gbtn" href="/api/auth/login"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2c-2 1.5-4.5 2.4-7.2 2.4-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>Sign in with Google</a><div class="err" id="gate-err" role="alert"></div></div></div>
 
 <!-- quick add link -->
@@ -766,7 +779,14 @@ $('#s-import').onclick=()=>{
   }catch(e){ $('#s-status').textContent='That text is not a valid backup.'; }
 };
 
-migrate(); render(); loadWeather(); loadSports(); NEWS.forEach(n=>loadNews(n[0])); checkAuth(); loadSnow();
+migrate(); render(); loadWeather(); loadSports(); NEWS.forEach(n=>loadNews(n[0])); function showTab(){
+  const mon=location.hash==='#monitoring';
+  $('#app').hidden=mon; $('#mon').hidden=!mon; document.body.classList.toggle('on-mon',mon);
+  if(mon&&editing){ editing=false; render(); }
+  for(const [el,on] of [[$('#tab-home'),!mon],[$('#tab-mon'),mon]]) on?el.setAttribute('aria-current','page'):el.removeAttribute('aria-current');
+}
+addEventListener('hashchange',showTab); showTab();
+checkAuth(); loadSnow();
 setInterval(loadSports,5*60*1000);
 setInterval(loadCalendar,10*60*1000);
 setInterval(loadSnow,15*60*1000);
