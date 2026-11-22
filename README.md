@@ -69,3 +69,4 @@ The Weather card shows the Storm Prediction Center's severe-weather outlook (tod
 | Lake Weatherford | waterdatafortexas.org (30-day CSV; page title as fallback) | ≥ 80% / 50–80% / < 50% |
 | Air quality, DFW | Open-Meteo US AQI (model) | ≤ 50 / 51–100 / > 100, now or next 24 h |
 | DFW airport | FAA NAS status (nasstatus.faa.gov) | no delays / arrival-departure delays or closure / ground stop or delay program |
+| SPY | Yahoo Finance chart data (Stooq daily CSV as fallback), delayed | up or down < 1% / down 1–2.5% / down > 2.5% on the day |

@@ -74,10 +74,27 @@ test('monitor: one failing source does not break the rest', async () => {
     if (u.includes('weatherford-30day')) return { ok: false, status: 404 };
     if (u.includes('waterdatafortexas')) return { ok: true, text: async () => '<title>Lake Weatherford: 57.6% full as of 2026-11-21</title>' };
     if (u.includes('nasstatus')) return { ok: true, text: async () => '<AIRPORT_STATUS_INFORMATION></AIRPORT_STATUS_INFORMATION>' };
+    if (u.includes('yahoo')) return { ok: false, status: 429 };
+    if (u.includes('stooq')) return { ok: true, text: async () => 'Date,Open,High,Low,Close,Volume\n2026-11-19,600,605,598,602.10,1\n2026-11-20,602,604,590,592.00,1\n' };
     throw new Error('unexpected ' + u);
   };
   try {
     const rows = await M.monitor(place, { stormRisk: async () => ({ today: { none: true }, tomorrow: { none: true } }) });
-    assert.deepStrictEqual(rows.map((r) => r.id + ':' + r.status), ['nws:green', 'spc:green', 'lake:yellow', 'aqi:gray', 'dfw:green']);
+    assert.deepStrictEqual(rows.map((r) => r.id + ':' + r.status), ['nws:green', 'spc:green', 'lake:yellow', 'aqi:gray', 'dfw:green', 'spy:yellow']);
   } finally { global.fetch = real; }
+});
+
+test('spy: Yahoo quote, colors by daily move, Stooq fallback', () => {
+  const y = M.spyFromYahoo({ chart: { result: [{ meta: { regularMarketPrice: 612.34, chartPreviousClose: 608.1, regularMarketTime: 1795467600, fiftyTwoWeekHigh: 620 } }] } });
+  const r = M.spyRow(y);
+  assert.deepStrictEqual([r.status, r.value], ['green', '$612.34 · +0.70%']);
+  assert.match(r.detail, /^\+\$4\.24 today · 1\.2% below 52-week high · as of .* · Yahoo Finance, delayed$/);
+  assert.strictEqual(M.spyRow({ price: 98.5, prev: 100, source: 'x' }).status, 'yellow');
+  assert.strictEqual(M.spyRow({ price: 97, prev: 100, source: 'x' }).status, 'red');
+  assert.match(M.spyRow({ price: 97, prev: 100, source: 'x' }).value, /−3\.00%/);
+  assert.strictEqual(M.spyFromYahoo({ chart: { result: null, error: { code: 'Not Found' } } }), null);
+  const s = M.spyFromStooq('Date,Open,High,Low,Close,Volume\n2026-11-19,600,605,598,602.10,1\n2026-11-20,602,604,590,592.00,1');
+  assert.deepStrictEqual([s.price, s.prev, s.high52], [592, 602.1, 605]);
+  assert.strictEqual(M.spyFromStooq('No data'), null);
+  assert.strictEqual(M.spyRow(null).status, 'gray');
 });
