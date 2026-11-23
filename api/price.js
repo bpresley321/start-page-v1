@@ -32,7 +32,7 @@ async function debugReport(u, res) {
   }
   try {
     const page = await fetchText(u.href);
-    out.steps.push({ step: 'page', status: page.status, ...diagnose(page.text) });
+    out.steps.push({ step: 'page', status: page.status, ...diagnose(page.text, u.href) });
   } catch (e) { out.steps.push({ step: 'page', error: String(e.message || e) }); }
   return res.status(200).json(out);
 }
@@ -53,7 +53,7 @@ module.exports = async (req, res) => {
       } catch {}
     }
     const page = r ? { ok: true, status: 200, text: '' } : await fetchText(u.href);
-    if (!r && page.ok) r = parseProduct(page.text);
+    if (!r && page.ok) r = parseProduct(page.text, u.href);
     if (!r) {
       const blocked = page.status === 403 || page.status === 429 || page.status === 503;
       res.setHeader('Cache-Control', 'no-store');

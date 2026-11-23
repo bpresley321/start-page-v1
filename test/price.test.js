@@ -87,3 +87,26 @@ test('price: diagnose summarizes a page', () => {
   assert.match(d.selectedOptions, /Charcoal/);
   assert.match(d.priceJson, /39\.89/);
 });
+
+test('price: headless Shopify (Peak Design) — version price from embedded data, not the product-level price', () => {
+  const v = (phone, style, color, price, was, id) => `{"availableForSale":true,"quantityAvailable":110,"compareAtPrice":${was ? `{"amount":"${was}","currencyCode":"USD"}` : 'null'},"id":"gid://shopify/ProductVariant/${id}","image":{"altText":"Case for ${phone} in ${color} Color","height":1024,"width":1024},"price":{"amount":"${price}","currencyCode":"USD"},"product":{"id":"gid://shopify/Product/1","title":"SlimLink Case | ${phone} | ${color}","h":"x"},"selectedOptions":[{"name":"Phone","value":"${phone}"},{"name":"Case Style","value":"${style}"},{"name":"Color","value":"${color}"}],"swatch":{"reference":{"text":{"value":"{curly} \\"quoted\\""}}}}`;
+  const html = `<html><head><title>SlimLink Case for Pixel | Peak Design Official Site</title>
+  <script type="application/ld+json">{"@type":"Product","name":"SlimLink Case for Pixel","offers":{"@type":"Offer","price":"59.95","availability":"https://schema.org/InStock"}}</script></head><body>
+  <div data-x="{&quot;selectedOptions&quot;:[]}"></div>
+  <script>window.__reactRouterContext = {"state":{"loaderData":{"routes/products.$handle":{"product":{"title":"SlimLink Case for Pixel","variants":{"nodes":[
+   ${v('Pixel 11', 'SlimLink Case', 'Charcoal', '39.89', '49.95', 11)},
+   ${v('Pixel 11 Pro XL', 'SlimLink Case', 'Charcoal', '39.89', '49.95', 12)},
+   ${v('Pixel 11 Pro XL', 'SlimLink Case', 'Ocean', '49.95', null, 13)},
+   ${v('Pixel 11 Pro XL', 'SlimLink Loop Case', 'Charcoal', '59.95', null, 14)}
+  ]}}}}}};</script></body></html>`;
+  const url = 'https://www.peakdesign.com/products/slimlink-case-for-pixel?Phone=Pixel+11+Pro+XL&Case+Style=SlimLink+Case&Color=Charcoal';
+  const r = P.parseProduct(html, url);
+  assert.deepStrictEqual([r.price, r.was, r.inStock, r.source], [39.89, 49.95, true, 'store data (your version)']);
+  assert.strictEqual(r.name, 'SlimLink Case for Pixel · Pixel 11 Pro XL / SlimLink Case / Charcoal');
+  assert.strictEqual(P.parseProduct(html, url.replace('Charcoal', 'Ocean')).price, 49.95);
+  assert.strictEqual(P.parseProduct(html, 'https://www.peakdesign.com/products/slimlink-case-for-pixel').price, 59.95); // no version in link
+  assert.strictEqual(P.embeddedVariants(html).length, 4);
+  // JSON inside a JS string (escaped quotes) is found too
+  const escaped = `<script>stream.enqueue("${html.match(/<script>window[^]*?<\/script>/)[0].replace(/^<script>|<\/script>$/g, '').replace(/"/g, '\\"')}")</script>`;
+  assert.strictEqual(P.parseProduct(escaped, url).price, 39.89);
+});

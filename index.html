@@ -732,13 +732,13 @@ const SHOP_EVERY=3*3600e3, checking=new Set();
 async function checkItem(id){
   const it0=(S.shop||[]).find(i=>i.id===id); if(!it0) return;
   checking.add(id); renderShop();
-  const d=await getJson('/api/price?r=3&url='+encodeURIComponent(it0.url)).catch(()=>({error:"Couldn't reach the price checker"}));
+  const d=await getJson('/api/price?r=4&url='+encodeURIComponent(it0.url)).catch(()=>({error:"Couldn't reach the price checker"}));
   checking.delete(id);
   const it=(S.shop||[]).find(i=>i.id===id); if(!it){ renderShop(); return; }   // removed (or replaced by sync) meanwhile
   const before=JSON.stringify([it.name,it.price,it.inStock,it.error,it.low,it.high,it.was]);
   if(d.price!=null){
     // pv: price reader version. Prices read by an older, less exact reader are dropped, not counted as a change.
-    if(it.pv!==3){ it.first=null; it.low=null; it.pv=3; }
+    if(it.pv!==4){ it.first=null; it.low=null; it.pv=4; }
     it.price=d.price; it.high=d.high??d.price; it.inStock=d.inStock; it.error=null; it.was=d.was||null;
     if(d.name) it.name=d.name;
     if(it.first==null) it.first=d.price;
@@ -751,7 +751,7 @@ async function checkItem(id){
 let shopBusy=false;
 async function checkShop(force){
   if(shopBusy||!auth.signedIn) return; shopBusy=true;
-  try{ for(const it of [...(S.shop||[])]) if(force||!it.checked||it.pv!==3||Date.now()-it.checked>SHOP_EVERY) await checkItem(it.id); }
+  try{ for(const it of [...(S.shop||[])]) if(force||!it.checked||it.pv!==4||Date.now()-it.checked>SHOP_EVERY) await checkItem(it.id); }
   finally{ shopBusy=false; }
 }
 $('#shop-form').addEventListener('submit',e=>{
