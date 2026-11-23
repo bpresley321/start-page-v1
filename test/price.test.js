@@ -62,3 +62,19 @@ test('price api: needs sign-in, rejects bad links, reports blocks', async () => 
     assert.deepStrictEqual([res.body.name, res.body.price, res.body.source], ['Cap', 28, 'Shopify']);
   } finally { process.env = env; global.fetch = realFetch; }
 });
+
+test('price: Shopify version picked from the link (Peak Design style options), with sale price', () => {
+  const j = { title: 'SlimLink Case for Pixel', options: ['Phone', 'Case Style', 'Color'], variants: [
+    { id: 1, title: 'Pixel 10 / Everyday Case / Charcoal', options: ['Pixel 10', 'Everyday Case', 'Charcoal'], price: 5995, compare_at_price: null, available: true },
+    { id: 2, title: 'Pixel 11 Pro XL / SlimLink Case / Charcoal', options: ['Pixel 11 Pro XL', 'SlimLink Case', 'Charcoal'], price: 3989, compare_at_price: 4995, available: true },
+    { id: 3, title: 'Pixel 11 Pro XL / SlimLink Case / Ocean', options: ['Pixel 11 Pro XL', 'SlimLink Case', 'Ocean'], price: 4995, compare_at_price: null, available: true },
+  ] };
+  const r = P.fromShopify(j, 'https://www.peakdesign.com/products/slimlink-case-for-pixel?Phone=Pixel+11+Pro+XL&Case+Style=SlimLink+Case&Color=Charcoal');
+  assert.deepStrictEqual([r.price, r.was, r.source, r.name], [39.89, 49.95, 'Shopify (your version)', 'SlimLink Case for Pixel · Pixel 11 Pro XL / SlimLink Case / Charcoal']);
+  assert.strictEqual(P.fromShopify(j, 'https://x.com/products/a?variant=3').price, 49.95);
+  const partial = P.fromShopify(j, 'https://x.com/products/a?Phone=Pixel%2011%20Pro%20XL&utm_source=mail');
+  assert.deepStrictEqual([partial.price, partial.high, partial.source], [39.89, 49.95, 'Shopify']);
+  assert.strictEqual(P.fromShopify(j, 'https://x.com/products/a?Color=Purple').price, 39.89); // no match: lowest overall
+  const objOpts = { ...j, options: [{ name: 'Phone' }, { name: 'Case Style' }, { name: 'Color' }] };
+  assert.strictEqual(P.fromShopify(objOpts, 'https://x.com/products/a?color=ocean&phone=pixel+11+pro+xl').price, 49.95);
+});

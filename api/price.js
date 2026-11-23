@@ -22,14 +22,16 @@ module.exports = async (req, res) => {
   const u = safeUrl(new URL(req.url, 'http://x').searchParams.get('url') || '');
   if (!u) return res.status(400).json({ error: 'Use a full https:// product link' });
   try {
-    const page = await fetchText(u.href);
-    let r = page.ok ? parseProduct(page.text) : null;
-    if (!r && /\/products\/[^/]+/.test(u.pathname)) {
+    // Shopify stores: the per-version price list is more exact than the page (which shows one default version).
+    let r = null;
+    if (/\/products\/[^/]+/.test(u.pathname)) {
       try {
-        const js = await fetch(u.origin + u.pathname.replace(/\/$/, '').replace(/(\/products\/[^/?#]+).*$/, '$1') + '.js', { headers: { ...HEADERS, accept: 'application/json' }, signal: AbortSignal.timeout(8000) });
-        if (js.ok) r = fromShopify(await js.json());
+        const js = await fetch(u.origin + u.pathname.replace(/(\/products\/[^/?#]+).*$/, '$1').replace(/\/$/, '') + '.js', { headers: { ...HEADERS, accept: 'application/json' }, signal: AbortSignal.timeout(8000) });
+        if (js.ok) r = fromShopify(await js.json(), u.href);   // not JSON (not a Shopify store) -> caught, page is read instead
       } catch {}
     }
+    const page = r ? { ok: true, status: 200, text: '' } : await fetchText(u.href);
+    if (!r && page.ok) r = parseProduct(page.text);
     if (!r) {
       const blocked = page.status === 403 || page.status === 429 || page.status === 503;
       res.setHeader('Cache-Control', 'no-store');

@@ -716,6 +716,7 @@ function renderShop(){
   box.innerHTML=items.map(it=>{
     const s=shopStatus(it), bits=[];
     if(it.target) bits.push(it.price!=null&&it.price<=it.target?`<span class="good">At target ${money(it.target)}</span>`:`Target ${money(it.target)}`);
+    if(it.was&&it.price!=null&&it.was>it.price) bits.push(`<span class="good">Sale</span> was ${money(it.was)}`);
     if(it.low!=null&&it.price!=null&&it.low<it.price) bits.push('Low '+money(it.low));
     if(it.first!=null&&it.price!=null&&Math.abs(it.price-it.first)>=0.01) bits.push((it.price<it.first?'↓ ':'↑ ')+money(Math.abs(it.price-it.first))+' since added');
     if(it.high&&it.price&&it.high>it.price+0.01) bits.push('Some options up to '+money(it.high));
@@ -734,21 +735,23 @@ async function checkItem(id){
   const d=await getJson('/api/price?url='+encodeURIComponent(it0.url)).catch(()=>({error:"Couldn't reach the price checker"}));
   checking.delete(id);
   const it=(S.shop||[]).find(i=>i.id===id); if(!it){ renderShop(); return; }   // removed (or replaced by sync) meanwhile
-  const before=JSON.stringify([it.name,it.price,it.inStock,it.error,it.low,it.high]);
+  const before=JSON.stringify([it.name,it.price,it.inStock,it.error,it.low,it.high,it.was]);
   if(d.price!=null){
-    it.price=d.price; it.high=d.high??d.price; it.inStock=d.inStock; it.error=null;
+    // pv: price reader version. Prices read by an older, less exact reader are dropped, not counted as a change.
+    if(it.pv!==2){ it.first=null; it.low=null; it.pv=2; }
+    it.price=d.price; it.high=d.high??d.price; it.inStock=d.inStock; it.error=null; it.was=d.was||null;
     if(d.name) it.name=d.name;
     if(it.first==null) it.first=d.price;
     it.low=it.low==null?d.price:Math.min(it.low,d.price);
   } else { it.error=d.error||"Couldn't read the price"; if(!it.name&&d.name) it.name=d.name; }
   it.checked=Date.now();
-  if(JSON.stringify([it.name,it.price,it.inStock,it.error,it.low,it.high])!==before) save(); else persist();
+  if(JSON.stringify([it.name,it.price,it.inStock,it.error,it.low,it.high,it.was])!==before) save(); else persist();
   renderShop(); softRender();
 }
 let shopBusy=false;
 async function checkShop(force){
   if(shopBusy||!auth.signedIn) return; shopBusy=true;
-  try{ for(const it of [...(S.shop||[])]) if(force||!it.checked||Date.now()-it.checked>SHOP_EVERY) await checkItem(it.id); }
+  try{ for(const it of [...(S.shop||[])]) if(force||!it.checked||it.pv!==2||Date.now()-it.checked>SHOP_EVERY) await checkItem(it.id); }
   finally{ shopBusy=false; }
 }
 $('#shop-form').addEventListener('submit',e=>{
