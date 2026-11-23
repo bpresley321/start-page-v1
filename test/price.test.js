@@ -78,3 +78,12 @@ test('price: Shopify version picked from the link (Peak Design style options), w
   const objOpts = { ...j, options: [{ name: 'Phone' }, { name: 'Case Style' }, { name: 'Color' }] };
   assert.strictEqual(P.fromShopify(objOpts, 'https://x.com/products/a?color=ocean&phone=pixel+11+pro+xl').price, 49.95);
 });
+
+test('price: diagnose summarizes a page', () => {
+  const d = P.diagnose('<title>Case</title><meta property="og:price:amount" content="59.95"><script>window.__remixContext={"product":{"selectedOptions":[{"name":"Color","value":"Charcoal"}],"price":{"amount":"39.89"},"compareAtPrice":{"amount":"49.95"}}}</script>');
+  assert.strictEqual(d.title, 'Case');
+  assert.strictEqual(d.hydrogen, true);
+  assert.strictEqual(d.parsed.price, 59.95);
+  assert.match(d.selectedOptions, /Charcoal/);
+  assert.match(d.priceJson, /39\.89/);
+});
