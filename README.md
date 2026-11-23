@@ -70,3 +70,6 @@ The Weather card shows the Storm Prediction Center's severe-weather outlook (tod
 | Air quality, DFW | Open-Meteo US AQI (model) | ≤ 50 / 51–100 / > 100, now or next 24 h |
 | DFW airport | FAA NAS status (nasstatus.faa.gov) | no delays / arrival-departure delays or closure / ground stop or delay program |
 | SPY | Yahoo Finance chart data (Stooq daily CSV as fallback), delayed | up or down < 1% / down 1–2.5% / down > 2.5% on the day |
+
+## Shopping watches
+Monitoring tab → Shopping: paste a product link (optionally a target price). `/api/price` (signed-in only) reads the price from the page's schema.org Product data, then price meta tags, then Shopify's product JSON. Prices are re-checked every 3 hours while the page is open on any device; the list (with first, lowest and current price) syncs like your links. Green = at or below target, yellow = below the price when added, gray = out of stock or the store blocked the check. Home shows only the green/yellow ones.

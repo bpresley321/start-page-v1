@@ -166,7 +166,24 @@ body.locked .gate{display:flex}body.locked #app,body.locked #mon,body.locked .pt
 .ptabs a:hover{background:rgba(10,14,30,.45)}
 .ptabs a[aria-current="page"]{background:rgba(255,255,255,.88);color:#15202a;border-color:rgba(255,255,255,.9);text-shadow:none}
 .ptabs a:focus-visible{outline:2px solid #fff;outline-offset:2px}
-.mon{max-width:900px}
+.mon{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;align-items:start}
+@media (min-width:900px){.mon{grid-template-columns:minmax(0,1.05fr) minmax(0,1fr)}}
+.shop-add{display:flex;flex-wrap:wrap;gap:5px}
+.shop-add #shop-url{flex:1 1 220px;min-width:0}
+.shop-target{display:inline-flex;align-items:center;gap:3px;color:var(--muted)}
+.shop-target input{width:72px}
+.shop-msg{font-size:.88em;color:var(--muted);min-height:1.2em;margin:4px 0 2px}
+.shop-item{display:grid;grid-template-columns:12px minmax(0,1fr) auto;gap:2px 9px;align-items:baseline;padding:8px 2px;border-top:1px solid var(--line)}
+.shop-item .dot{width:10px;height:10px;border-radius:50%;align-self:center}
+.shop-item .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink);text-decoration:none;font-weight:600}
+.shop-item .nm:hover{color:var(--accent)}
+.shop-item .pr{font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
+.shop-item .meta{grid-column:2;color:var(--muted);font-size:.86em;display:flex;flex-wrap:wrap;gap:2px 10px}
+.shop-item .meta .good{color:#1b7a43;font-weight:700}
+.shop-item .ops{grid-column:3;display:flex;gap:4px;justify-content:flex-end}
+.shop-item .ops button{border:0;background:none;color:var(--muted);cursor:pointer;font:inherit;font-size:.86em;padding:0 2px}
+.shop-item .ops button:hover{color:var(--accent)}
+.shop-item .ops .rm.armed{color:var(--warn);font-weight:700}
 .mrow{display:grid;grid-template-columns:14px minmax(110px,170px) 1fr auto;gap:2px 10px;align-items:baseline;padding:8px 2px;border-bottom:1px solid var(--line)}
 .mrow:last-child{border-bottom:0}
 .mrow .dot{width:11px;height:11px;border-radius:50%;align-self:center}
@@ -183,6 +200,7 @@ body.locked .gate{display:flex}body.locked #app,body.locked #mon,body.locked .pt
 .stk .dot{width:8px;height:8px;border-radius:50%;flex:none}
 .stk-green{background:rgba(31,157,85,.1)}.stk-yellow{background:rgba(224,161,0,.16);border-color:rgba(224,161,0,.45)}
 .stk-red{background:rgba(214,69,69,.14);border-color:rgba(214,69,69,.55)}.stk-gray{background:var(--accent-soft)}
+.stk-plain{background:var(--accent-soft)}
 .stk-msg{color:var(--muted);font-size:.9em;padding:2px}
 .stk-go{position:absolute;right:9px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:1.3em}
 .mbadge{display:inline-block;margin-left:6px;min-width:18px;padding:0 6px;border-radius:99px;color:#fff;font-size:11px;line-height:17px;text-align:center;text-shadow:none}
@@ -261,9 +279,22 @@ body.on-mon #btn-add,body.on-mon #btn-edit{display:none}
 
 <div class="wrap" id="app"><main class="cols" id="cols"><div class="col" id="c1"><div class="col" id="c1-top"></div><div id="cam-host"></div><div class="col" id="c1-bottom"></div></div><div class="col" id="c2"></div><div class="col" id="c3"></div><div class="col" id="c4"></div></main></div>
 <div class="wrap" id="mon" hidden><main class="mon">
+  <div class="mon-col">
   <section class="card" aria-labelledby="h-mon"><h2 id="h-mon">Conditions<span class="tag" id="mon-when"></span></h2>
     <div id="mon-rows" aria-live="polite"><div class="empty">Loading…</div></div>
   </section>
+  </div>
+  <div class="mon-col">
+  <section class="card" aria-labelledby="h-shop"><h2 id="h-shop">Shopping<span class="tag" id="shop-when"></span></h2>
+    <form class="shop-add" id="shop-form">
+      <input id="shop-url" type="url" inputmode="url" placeholder="Paste a product link (REI, etc.)" aria-label="Product link" autocomplete="off" required>
+      <span class="shop-target"><span aria-hidden="true">$</span><input id="shop-target" inputmode="decimal" placeholder="Target" aria-label="Target price (optional)" autocomplete="off"></span>
+      <button class="btn pri" type="submit">Watch</button>
+    </form>
+    <div class="shop-msg" id="shop-msg" role="status"></div>
+    <div id="shop-list"></div>
+  </section>
+  </div>
 </main></div>
 <div class="gate" id="gate" role="dialog" aria-modal="true" aria-labelledby="gate-h"><div class="panel"><h3 id="gate-h">Sign in to your start page</h3><p>Your links, tasks and settings load after you sign in.</p><a class="gbtn" href="/api/auth/login"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2c-2 1.5-4.5 2.4-7.2 2.4-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>Sign in with Google</a><div class="err" id="gate-err" role="alert"></div></div></div>
 
@@ -320,6 +351,7 @@ function defaults(){
   return {
     city:'Fort Worth, TX', size:'small', name:'Ben', m1:true, m2:true, m3:true, m4:true, m5:true, m6:true, m7:true,
     tasks:[{id:uid(),t:'Find birth certificates',done:false}],
+    shop:[],
     groups:[
       {id:uid(),name:'Popular',col:2,icons:true,links:[L('Gmail','https://mail.google.com'),L('YouTube','https://www.youtube.com'),L('Reddit','https://www.reddit.com'),L('Facebook','https://www.facebook.com'),L('Sheets','https://docs.google.com/spreadsheets'),L('Docs','https://docs.google.com/document'),L('Calendar','https://calendar.google.com'),L('Maps','https://maps.google.com'),L('Drive','https://drive.google.com'),L('GitHub','https://github.com'),L('Claude','https://claude.ai'),L('Amazon','https://www.amazon.com')]},
       {id:uid(),name:'Weather',col:3,links:weatherLinks()},
@@ -408,7 +440,7 @@ async function checkAuth(){
   }catch(e){ pull(); return; }   // offline or no server: keep working from this device's copy
   if(auth.configured){
     if(pass) dropPass();          // the passcode is retired once Google sign-in is on
-    if(auth.signedIn){ lock(false); syncMsg='Sync is on.'; pull(); loadCalendar(); }
+    if(auth.signedIn){ lock(false); syncMsg='Sync is on.'; pull().then(()=>checkShop()); loadCalendar(); }
     else lock(true,SIGNIN_MSG[m]||'');
   } else pull();
 }
@@ -618,7 +650,8 @@ function render(){
   $('#c1-bottom').innerHTML=tasksCard();
   $('#c2').innerHTML=`${byCol(2)}${NEWS.map(n=>newsCard(n[0],n[1])).join('')}`;
   $('#c3').innerHTML=byCol(3);
-  $('#c4').innerHTML=`${monCard()}${calendarCard()}${sportsCard()}${c4}${addGroup}`;
+  renderShop();
+  $('#c4').innerHTML=`${monCard()}${shopCard()}${calendarCard()}${sportsCard()}${c4}${addGroup}`;
   const bar=document.querySelector('.wtabs'), on=bar&&bar.querySelector('.wtab.on');
   if(on) bar.scrollLeft=Math.max(0,on.offsetLeft-bar.offsetLeft-bar.clientWidth/2+on.offsetWidth/2);
 }
@@ -650,6 +683,102 @@ function renderSnow(){
 }
 async function loadSnow(){ cache.snow=await getJson('/api/snow').catch(()=>({error:'Snow report is unavailable right now'})); renderSnow(); }
 let monCity=null, monBusy=false;
+/* ---------- shopping watches ---------- */
+// S.shop: [{id,url,target,added,name,price,high,first,low,inStock,checked,error}] (synced)
+const money=v=>v==null?'—':'$'+(v>=1000?Math.round(v).toLocaleString('en-US'):v.toFixed(2));
+function shopStatus(it){
+  if(it.error&&it.price==null) return 'gray';
+  if(it.inStock===false) return 'gray';
+  if(it.target&&it.price!=null&&it.price<=it.target) return 'green';
+  if(it.first!=null&&it.price!=null&&it.price<it.first-0.005) return 'yellow';
+  return 'none';
+}
+// Fallback name from the link, e.g. /product/123/patagonia-nano-puff-jacket-mens -> Patagonia Nano Puff Jacket Mens
+function nameFromUrl(u){
+  try{ const seg=new URL(u).pathname.split('/').filter(x=>x&&!/^\d+$/.test(x)&&!/^(product|products|p|dp|item|shop)$/i.test(x)).pop()||'';
+    const n=decodeURIComponent(seg).replace(/\.(html?|aspx?)$/i,'').replace(/[-_+]+/g,' ').trim();
+    return n?n.replace(/\b\w/g,c=>c.toUpperCase()):new URL(u).hostname.replace(/^www\./,''); }catch(e){ return u; }
+}
+const itemName=it=>it.name||nameFromUrl(it.url);
+function shortName(n){ n=String(n||'').replace(/\s*[|–-]\s*(REI|REI Co-op|Backcountry|Amazon\.com).*$/i,'').replace(/\s+-\s+(Men|Women|Kids)'?s.*$/i,''); if(n.length<=18) return n; const cut=n.slice(0,18); return (cut.includes(' ')?cut.slice(0,cut.lastIndexOf(' ')):cut).trim()+'…'; }
+function shopCard(){
+  const items=S.shop||[]; if(!items.length) return '';
+  const deals=items.filter(it=>['green','yellow'].includes(shopStatus(it))).sort((a,b)=>(shopStatus(a)==='green'?0:1)-(shopStatus(b)==='green'?0:1));
+  const rest=items.length-deals.length;
+  const st=deals.map(it=>{const s=shopStatus(it);return `<span class="stk stk-${s}" title="${esc(itemName(it)+(it.target?' · target '+money(it.target):'')+(s==='yellow'?' · down from '+money(it.first):''))}"><i class="dot st-${s}"></i>${esc(shortName(itemName(it)))} <b>${money(it.price)}</b></span>`;}).join('');
+  const tail=deals.length?(rest?`<span class="stk-msg">+${rest} watched</span>`:''):`<span class="stk-msg">Shopping: ${items.length} watched · no deals right now</span>`;
+  return `<a class="card stickers" href="#monitoring" aria-label="Shopping watches. Open the Monitoring tab for details.">${st}${tail}<span class="stk-go" aria-hidden="true">›</span></a>`;
+}
+function renderShop(){
+  const box=$('#shop-list'); if(!box) return;
+  const items=S.shop||[];
+  if(!items.length){ box.innerHTML='<div class="empty">No watches yet. Paste a product link above; add a target price to get a green flag when it drops to it.</div>'; $('#shop-when').textContent=''; return; }
+  box.innerHTML=items.map(it=>{
+    const s=shopStatus(it), bits=[];
+    if(it.target) bits.push(it.price!=null&&it.price<=it.target?`<span class="good">At target ${money(it.target)}</span>`:`Target ${money(it.target)}`);
+    if(it.low!=null&&it.price!=null&&it.low<it.price) bits.push('Low '+money(it.low));
+    if(it.first!=null&&it.price!=null&&Math.abs(it.price-it.first)>=0.01) bits.push((it.price<it.first?'↓ ':'↑ ')+money(Math.abs(it.price-it.first))+' since added');
+    if(it.high&&it.price&&it.high>it.price+0.01) bits.push('Some options up to '+money(it.high));
+    if(it.inStock===false) bits.push('Out of stock');
+    if(it.error) bits.push('⚠ '+esc(it.error));
+    if(checking.has(it.id)) bits.push('Checking…');
+    return `<div class="shop-item"><span class="dot st-${s==='none'?'gray':s}"${s==='none'?' style="opacity:.35"':''}></span><a class="nm" href="${esc(it.url)}" target="_blank" rel="noopener" title="${esc(itemName(it))}">${esc(itemName(it))}</a><span class="pr">${money(it.price)}</span><span class="meta">${bits.join('<span aria-hidden="true">·</span>')||(it.checked?'':'Not checked yet')}</span><span class="ops"><button type="button" data-shop="target" data-id="${it.id}">Target</button><button type="button" class="rm" data-shop="rm" data-id="${it.id}" aria-label="Remove ${esc(itemName(it))}">Remove</button></span></div>`;
+  }).join('');
+  const last=Math.max(...items.map(i=>i.checked||0));
+  $('#shop-when').textContent=last?'checked '+new Date(last).toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit'}):'';
+}
+const SHOP_EVERY=3*3600e3, checking=new Set();
+async function checkItem(id){
+  const it0=(S.shop||[]).find(i=>i.id===id); if(!it0) return;
+  checking.add(id); renderShop();
+  const d=await getJson('/api/price?url='+encodeURIComponent(it0.url)).catch(()=>({error:"Couldn't reach the price checker"}));
+  checking.delete(id);
+  const it=(S.shop||[]).find(i=>i.id===id); if(!it){ renderShop(); return; }   // removed (or replaced by sync) meanwhile
+  const before=JSON.stringify([it.name,it.price,it.inStock,it.error,it.low,it.high]);
+  if(d.price!=null){
+    it.price=d.price; it.high=d.high??d.price; it.inStock=d.inStock; it.error=null;
+    if(d.name) it.name=d.name;
+    if(it.first==null) it.first=d.price;
+    it.low=it.low==null?d.price:Math.min(it.low,d.price);
+  } else { it.error=d.error||"Couldn't read the price"; if(!it.name&&d.name) it.name=d.name; }
+  it.checked=Date.now();
+  if(JSON.stringify([it.name,it.price,it.inStock,it.error,it.low,it.high])!==before) save(); else persist();
+  renderShop(); softRender();
+}
+let shopBusy=false;
+async function checkShop(force){
+  if(shopBusy||!auth.signedIn) return; shopBusy=true;
+  try{ for(const it of [...(S.shop||[])]) if(force||!it.checked||Date.now()-it.checked>SHOP_EVERY) await checkItem(it.id); }
+  finally{ shopBusy=false; }
+}
+$('#shop-form').addEventListener('submit',e=>{
+  e.preventDefault();
+  const msg=$('#shop-msg'), raw=$('#shop-url').value.trim(), t=$('#shop-target').value.replace(/[$,\s]/g,'');
+  let u; try{ u=new URL(raw); }catch(x){}
+  if(!u||u.protocol!=='https:'){ msg.textContent='Paste the full product link, starting with https://'; return; }
+  if(t&&!(+t>0)){ msg.textContent='Target price should be a number, like 149.99'; return; }
+  S.shop=S.shop||[];
+  if(S.shop.some(i=>i.url===u.href)){ msg.textContent="You're already watching that one."; return; }
+  if(S.shop.length>=25){ msg.textContent='That’s the limit of 25 watches. Remove one first.'; return; }
+  const it={id:uid(),url:u.href,target:t?+(+t).toFixed(2):null,added:Date.now()};
+  S.shop.unshift(it); save(); msg.textContent='Added. Checking the price…';
+  $('#shop-url').value=''; $('#shop-target').value='';
+  renderShop(); softRender();
+  checkItem(it.id).then(()=>{ const x=S.shop.find(i=>i.id===it.id); msg.textContent=x&&x.error?'Added, but: '+x.error+'. It will keep trying.':''; });
+});
+$('#shop-list').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-shop]'); if(!b) return;
+  const it=(S.shop||[]).find(i=>i.id===b.dataset.id); if(!it) return;
+  if(b.dataset.shop==='rm'){
+    if(!b.classList.contains('armed')){ b.classList.add('armed'); b.textContent='Tap to remove'; setTimeout(()=>{ if(b.isConnected){ b.classList.remove('armed'); b.textContent='Remove'; } },4000); return; }
+    S.shop=S.shop.filter(i=>i.id!==it.id); save(); renderShop(); softRender();
+  } else if(b.dataset.shop==='target'){
+    const cell=b.closest('.shop-item').querySelector('.meta');
+    cell.innerHTML=`<form class="shop-add" data-tid="${it.id}"><span class="shop-target"><span aria-hidden="true">$</span><input inputmode="decimal" value="${it.target??''}" aria-label="Target price" placeholder="none"></span><button class="btn sm" type="submit">Save</button></form>`;
+    const f=cell.querySelector('form'), inp=f.querySelector('input'); inp.focus(); inp.select();
+    f.addEventListener('submit',ev=>{ ev.preventDefault(); const v=inp.value.replace(/[$,\s]/g,''); if(v&&!(+v>0)){ inp.setCustomValidity('Enter a price'); inp.reportValidity(); return; } it.target=v?+(+v).toFixed(2):null; save(); renderShop(); softRender(); });
+  }
+});
 function monCard(){
   const d=cache.mon;
   let inner;
@@ -855,6 +984,7 @@ setInterval(loadSports,5*60*1000);
 setInterval(loadCalendar,10*60*1000);
 setInterval(loadSnow,15*60*1000);
 setInterval(()=>loadMonitor(true),10*60*1000);
+setInterval(()=>checkShop(),30*60*1000);
 setInterval(()=>{ loadWeather(true); NEWS.forEach(n=>loadNews(n[0])); },15*60*1000);
 </script>
 </body>
