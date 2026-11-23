@@ -36,3 +36,13 @@ test('snow: whole-mountain count wins over area counts listed first', () => {
   const r = parseSnow('<p>3″ 24 Hr</p><h3>Frontside</h3><p>5/57 Trails Open</p><h3>Backside</h3><p>0/51 Trails Open</p><p>1/9 Lifts Open</p><div>5 of 114</div><div>Trails Open</div><div>1 of 12 Lifts Open</div>');
   assert.deepStrictEqual([r.trails, r.lifts], [{ open: 5, total: 114 }, { open: 1, total: 12 }]);
 });
+
+test('snow: dial counts with a percent or other text between the number and the label', () => {
+  const page = `<div>0″</div><div>24 Hr</div><div>14″</div><div>Base Depth</div>
+   <div class="dial"><svg><circle/></svg><span>11</span><span>of 114</span><span class="pct">10%</span></div><h4>Trails Open</h4>
+   <div class="dial"><span>2</span><span>of 12</span><span>17%</span></div><h4>Lifts Open</h4>
+   <h3>Frontside</h3><p>11/57 Trails Open</p><h3>Backside</h3><p>0/51 Trails Open</p>
+   <h3>Purgatory Express #1</h3><p>Hours: 9am-4pm 1 of 2 chairs</p>`;
+  const r = parseSnow(page);
+  assert.deepStrictEqual([r.trails, r.lifts, r.new24, r.base], [{ open: 11, total: 114 }, { open: 2, total: 12 }, 0, 14]);
+});
