@@ -723,7 +723,7 @@ function renderShop(){
     if(it.inStock===false) bits.push('Out of stock');
     if(it.error) bits.push('⚠ '+esc(it.error));
     if(checking.has(it.id)) bits.push('Checking…');
-    return `<div class="shop-item"><span class="dot st-${s==='none'?'gray':s}"${s==='none'?' style="opacity:.35"':''}></span><a class="nm" href="${esc(it.url)}" target="_blank" rel="noopener" title="${esc(itemName(it))}">${esc(itemName(it))}</a><span class="pr">${money(it.price)}</span><span class="meta">${bits.join('<span aria-hidden="true">·</span>')||(it.checked?'':'Not checked yet')}</span><span class="ops"><button type="button" data-shop="diag" data-id="${it.id}">Diagnose</button><button type="button" data-shop="target" data-id="${it.id}">Target</button><button type="button" class="rm" data-shop="rm" data-id="${it.id}" aria-label="Remove ${esc(itemName(it))}">Remove</button></span></div>`;
+    return `<div class="shop-item"><span class="dot st-${s==='none'?'gray':s}"${s==='none'?' style="opacity:.35"':''}></span><a class="nm" href="${esc(it.url)}" target="_blank" rel="noopener" title="${esc(itemName(it))}">${esc(itemName(it))}</a><span class="pr">${money(it.price)}</span><span class="meta">${bits.join('<span aria-hidden="true">·</span>')||(it.checked?'':'Not checked yet')}</span><span class="ops"><button type="button" data-shop="target" data-id="${it.id}">Target</button><button type="button" class="rm" data-shop="rm" data-id="${it.id}" aria-label="Remove ${esc(itemName(it))}">Remove</button></span></div>`;
   }).join('');
   const last=Math.max(...items.map(i=>i.checked||0));
   $('#shop-when').textContent=last?'checked '+new Date(last).toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit'}):'';
@@ -775,14 +775,6 @@ $('#shop-list').addEventListener('click',e=>{
   if(b.dataset.shop==='rm'){
     if(!b.classList.contains('armed')){ b.classList.add('armed'); b.textContent='Tap to remove'; setTimeout(()=>{ if(b.isConnected){ b.classList.remove('armed'); b.textContent='Remove'; } },4000); return; }
     S.shop=S.shop.filter(i=>i.id!==it.id); save(); renderShop(); softRender();
-  } else if(b.dataset.shop==='diag'){
-    const cell=b.closest('.shop-item').querySelector('.meta');
-    cell.innerHTML='<span>Looking at the store page…</span>';
-    getJson('/api/price?debug=1&url='+encodeURIComponent(it.url)).catch(e=>({error:String(e)})).then(d=>{
-      const txt=JSON.stringify(d,null,1);
-      cell.innerHTML=`<div style="width:100%"><textarea readonly rows="8" style="width:100%;font:11px ui-monospace,Menlo,monospace">${esc(txt)}</textarea><button type="button" class="btn sm">Copy</button> <small>Copy and paste this to Claude.</small></div>`;
-      cell.querySelector('button').onclick=async ev=>{ const ta=cell.querySelector('textarea'); ta.select(); try{ await navigator.clipboard.writeText(ta.value); ev.target.textContent='Copied'; }catch(x){ document.execCommand&&document.execCommand('copy'); ev.target.textContent='Copied'; } };
-    });
   } else if(b.dataset.shop==='target'){
     const cell=b.closest('.shop-item').querySelector('.meta');
     cell.innerHTML=`<form class="shop-add" data-tid="${it.id}"><span class="shop-target"><span aria-hidden="true">$</span><input inputmode="decimal" value="${it.target??''}" aria-label="Target price" placeholder="none"></span><button class="btn sm" type="submit">Save</button></form>`;
