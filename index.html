@@ -488,7 +488,7 @@ async function push(){
   if(again){ again=false; push(); }
 }
 function queuePush(){ if(!syncOn()) return; clearTimeout(pushTimer); pushTimer=setTimeout(push,800); }
-document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') pull(); });
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'){ pull().then(()=>checkShop()); } });
 
 /* ---------- helpers ---------- */
 function normUrl(u){
@@ -721,20 +721,34 @@ function renderShop(){
     if(it.first!=null&&it.price!=null&&Math.abs(it.price-it.first)>=0.01) bits.push((it.price<it.first?'↓ ':'↑ ')+money(Math.abs(it.price-it.first))+' since added');
     if(it.high&&it.price&&it.high>it.price+0.01) bits.push('Some options up to '+money(it.high));
     if(it.inStock===false) bits.push('Out of stock');
-    if(it.error) bits.push('⚠ '+esc(it.error));
+    if(it.error&&it.error!==OLD_NET_ERR) bits.push('⚠ '+esc(it.error));
     if(checking.has(it.id)) bits.push('Checking…');
     return `<div class="shop-item"><span class="dot st-${s==='none'?'gray':s}"${s==='none'?' style="opacity:.35"':''}></span><a class="nm" href="${esc(it.url)}" target="_blank" rel="noopener" title="${esc(itemName(it))}">${esc(itemName(it))}</a><span class="pr">${money(it.price)}</span><span class="meta">${bits.join('<span aria-hidden="true">·</span>')||(it.checked?'':'Not checked yet')}</span><span class="ops"><button type="button" data-shop="target" data-id="${it.id}">Target</button><button type="button" class="rm" data-shop="rm" data-id="${it.id}" aria-label="Remove ${esc(itemName(it))}">Remove</button></span></div>`;
   }).join('');
   const last=Math.max(...items.map(i=>i.checked||0));
   $('#shop-when').textContent=last?'checked '+new Date(last).toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit'}):'';
 }
-const SHOP_EVERY=3*3600e3, checking=new Set();
+const SHOP_EVERY=3*3600e3, SHOP_RETRY=20*60e3, checking=new Set(), tried={};
+const OLD_NET_ERR="Couldn't reach the price checker";   // saved by older code for interrupted checks
+// Asks the price checker. Returns null when the check itself didn't complete (page left, iPad asleep,
+// network drop, server timeout): that is not the store's answer, so nothing is recorded and it is tried again later.
+async function askPrice(url){
+  try{
+    const r=await fetch('/api/price?r=4&url='+encodeURIComponent(url));
+    if(r.status===401) return {error:'Sign in required'};
+    const j=await r.json().catch(()=>null);
+    if(!r.ok||!j) return null;
+    return j;
+  }catch(e){ return null; }
+}
 async function checkItem(id){
   const it0=(S.shop||[]).find(i=>i.id===id); if(!it0) return;
   checking.add(id); renderShop();
-  const d=await getJson('/api/price?r=4&url='+encodeURIComponent(it0.url)).catch(()=>({error:"Couldn't reach the price checker"}));
+  tried[id]=Date.now();
+  const d=await askPrice(it0.url);
   checking.delete(id);
   const it=(S.shop||[]).find(i=>i.id===id); if(!it){ renderShop(); return; }   // removed (or replaced by sync) meanwhile
+  if(!d){ if(it.error===OLD_NET_ERR){ it.error=null; persist(); } renderShop(); return; }
   const before=JSON.stringify([it.name,it.price,it.inStock,it.error,it.low,it.high,it.was]);
   if(d.price!=null){
     // pv: price reader version. Prices read by an older, less exact reader are dropped, not counted as a change.
@@ -749,10 +763,18 @@ async function checkItem(id){
   renderShop(); softRender();
 }
 let shopBusy=false;
+function shopDue(it){
+  if(tried[it.id]&&Date.now()-tried[it.id]<SHOP_RETRY) return false;   // tried recently on this device
+  if(!it.checked||it.pv!==4||it.error===OLD_NET_ERR) return true;
+  return Date.now()-it.checked>(it.error?SHOP_RETRY:SHOP_EVERY);
+}
 async function checkShop(force){
   if(shopBusy||!auth.signedIn) return; shopBusy=true;
-  try{ for(const it of [...(S.shop||[])]) if(force||!it.checked||it.pv!==4||Date.now()-it.checked>SHOP_EVERY) await checkItem(it.id); }
-  finally{ shopBusy=false; }
+  try{
+    const due=(S.shop||[]).filter(it=>force||shopDue(it)).map(it=>it.id);
+    const work=async()=>{ while(due.length) await checkItem(due.shift()); };
+    await Promise.all([work(),work(),work()]);   // three at a time: a round finishes before you switch away
+  } finally{ shopBusy=false; }
 }
 $('#shop-form').addEventListener('submit',e=>{
   e.preventDefault();
