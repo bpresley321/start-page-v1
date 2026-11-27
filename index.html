@@ -222,6 +222,7 @@ body.on-mon #btn-add,body.on-mon #btn-edit{display:none}
 .gbtn:hover{border-color:var(--accent)}
 .gbtn svg{width:18px;height:18px}
 .gate .err{color:var(--warn);font-size:13px}
+#s-uq-row[hidden]{display:none}
 #pass-ui:not([hidden]),#g-ui:not([hidden]){display:flex;flex-direction:column;gap:10px}
 .code{font:12px ui-monospace,Menlo,monospace;word-break:break-all;background:var(--accent-soft);padding:6px 8px;border-radius:6px;color:var(--ink);user-select:all}
 .team{padding:5px 0;border-bottom:1px solid var(--line)}
@@ -329,7 +330,8 @@ body.on-mon #btn-add,body.on-mon #btn-edit{display:none}
   <div class="panel">
     <h3>Settings</h3>
     <label for="s-city">Open weather city (rename this tab)<input id="s-city" type="text" autocomplete="off" placeholder="Fort Worth, TX"></label>
-    <label for="s-head">Header photo<select id="s-head"><option value="apod">NASA picture of the day</option><option value="mountain">Mountains</option></select></label>
+    <label for="s-head">Header photo<select id="s-head"><option value="apod">NASA picture of the day</option><option value="unsplash">Unsplash photo of the day</option><option value="mountain">Mountains</option></select></label>
+    <label for="s-uq" id="s-uq-row">Unsplash search words<input id="s-uq" placeholder="mountains landscape" autocomplete="off"></label>
     <label for="s-size">Text size<select id="s-size"><option value="xsmall">Extra small</option><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select></label>
     <div id="g-ui" hidden><div class="status" id="g-who"></div><div class="row"><button type="button" class="btn" id="s-signout">Sign out on this device</button></div></div>
     <div id="pass-ui">
@@ -366,7 +368,7 @@ function defaults(){
     city:'Fort Worth, TX', size:'small', name:'Ben', m1:true, m2:true, m3:true, m4:true, m5:true, m6:true, m7:true,
     tasks:[{id:uid(),t:'Find birth certificates',done:false}],
     shop:[],
-    header:'apod',
+    header:'apod', uq:'mountains landscape',
     groups:[
       {id:uid(),name:'Popular',col:2,icons:true,links:[L('Gmail','https://mail.google.com'),L('YouTube','https://www.youtube.com'),L('Reddit','https://www.reddit.com'),L('Facebook','https://www.facebook.com'),L('Sheets','https://docs.google.com/spreadsheets'),L('Docs','https://docs.google.com/document'),L('Calendar','https://calendar.google.com'),L('Maps','https://maps.google.com'),L('Drive','https://drive.google.com'),L('GitHub','https://github.com'),L('Claude','https://claude.ai'),L('Amazon','https://www.amazon.com')]},
       {id:uid(),name:'Weather',col:3,links:weatherLinks()},
@@ -671,7 +673,7 @@ function groupCard(g,i){
   </section>`;
 }
 function render(){
-  if(typeof applyHeader==='function'&&headerMode&&((S.header==='mountain'?'mountain':'apod')!==headerMode)) applyHeader();
+  if(typeof applyHeader==='function'&&headerMode&&headerWanted()!==headerMode) applyHeader();
   document.body.dataset.size=S.size||'small';
   $('#app').classList.toggle('editing',editing);
   $('#btn-edit').textContent=editing?'Done':'Edit';
@@ -881,29 +883,41 @@ async function loadNews(key){ cache.news[key]=null; softRender(); cache.news[key
 })();
 // Header photo: NASA's Astronomy Picture of the Day (default) or the mountain photo. The mountain photo shows
 // first and stays if NASA's picture can't load. The last picture is remembered on this device so it shows at once.
-function showPhoto(url,apod){
+function showPhoto(url,info){
   const mode=headerMode, seq=++photoSeq, img=new Image();
   img.onload=()=>{ if(headerMode!==mode||seq<photoShown) return;   // setting changed, or a newer photo is already up
     photoShown=seq;
-    const wide=img.naturalWidth/Math.max(1,img.naturalHeight)>=2.2;   // wide enough to crop into the banner
-    const fit=!!apod&&!wide; $('#banner').classList.toggle('fit',fit); $('#photo-fit').style.setProperty('--ar',(img.naturalWidth/Math.max(1,img.naturalHeight)).toFixed(3)); $('#photo-fit').style.backgroundImage=fit?`url("${url.replace(/"/g,'%22')}")`:'';
-    $('#photo').style.backgroundImage=`url("${url.replace(/"/g,'%22')}")`; $('#banner').classList.add('has-photo'); $('#banner').classList.toggle('apod',!!apod);
-    const cap=$('#apod-cap'); cap.hidden=!apod;
-    if(apod){ cap.href=apod.page; cap.textContent=apod.title+' · © '+apod.credit; cap.title=apod.title+' — '+apod.credit+' (NASA Astronomy Picture of the Day, '+apod.date+')'; } };
+    const ar=img.naturalWidth/Math.max(1,img.naturalHeight), q=`url("${url.replace(/"/g,'%22')}")`;
+    const fit=!!info&&ar<2.2;   // not wide enough to crop into the banner: whole picture on the right over a blur
+    $('#banner').classList.toggle('fit',fit); $('#photo-fit').style.setProperty('--ar',ar.toFixed(3)); $('#photo-fit').style.backgroundImage=fit?q:'';
+    $('#photo').style.backgroundImage=q; $('#banner').classList.add('has-photo'); $('#banner').classList.toggle('apod',!!info);
+    const cap=$('#apod-cap'); cap.hidden=!info;
+    if(info){
+      cap.href=info.page;
+      if(info.source==='unsplash'){ cap.textContent=info.caption; cap.title=info.title+(info.location?' — '+info.location:'')+'. '+info.caption+'.'; }
+      else { cap.textContent=info.title+' · © '+info.credit; cap.title=info.title+' — '+info.credit+' (NASA Astronomy Picture of the Day, '+info.date+')'; }
+    } };
   img.src=url;
 }
+// Which header to show, as a key that changes when the choice (or the Unsplash search words) change.
+function headerWanted(){
+  const h=S&&S.header;
+  return h==='mountain'?'mountain':h==='unsplash'?'unsplash|'+(S.uq||'mountains landscape'):'apod';
+}
 async function applyHeader(){
-  const mode=(S&&S.header)==='mountain'?'mountain':'apod';
-  if(mode===headerMode) return; headerMode=mode;
-  if(mode==='mountain'){ showPhoto('header.jpg',null); return; }
-  let last=null; try{ last=JSON.parse(localStorage.getItem('startpage-apod2')||'null'); localStorage.removeItem('startpage-apod'); }catch(e){}
+  const want=headerWanted();
+  if(want===headerMode) return; headerMode=want;
+  if(want==='mountain'){ showPhoto('header.jpg',null); return; }
+  const isU=want.startsWith('unsplash'), store='startpage-hdr-'+(isU?'unsplash':'apod');
+  let last=null; try{ last=JSON.parse(localStorage.getItem(store)||'null'); localStorage.removeItem('startpage-apod'); localStorage.removeItem('startpage-apod2'); }catch(e){}
+  if(last&&last.key!==want) last=null;   // remembered photo was for other search words
   showPhoto(last&&last.url?last.url:'header.jpg', last&&last.url?last:null);
-  const d=await getJson('/api/apod?v=4').catch(()=>null);
-  if((!d||d.error||!d.url)&&headerMode==='apod'&&last){ try{ localStorage.removeItem('startpage-apod2'); }catch(e){} showPhoto('header.jpg',null); }
-  if(d&&d.url&&!d.error&&headerMode==='apod'){
-    try{ localStorage.setItem('startpage-apod2',JSON.stringify(d)); }catch(e){}
-    if(!last||last.url!==d.url) showPhoto(d.url,d);
-  }
+  const src=isU?'/api/apod?source=unsplash&q='+encodeURIComponent(S.uq||'mountains landscape')+'&day='+lkey(new Date()):'/api/apod?v=4';
+  const d=await getJson(src).catch(()=>null);
+  if(headerMode!==want) return;
+  if(!d||d.error||!d.url){ if(last){ try{ localStorage.removeItem(store); }catch(e){} showPhoto('header.jpg',null); } return; }
+  d.key=want; try{ localStorage.setItem(store,JSON.stringify(d)); }catch(e){}
+  if(!last||last.url!==d.url) showPhoto(d.url,d);
 }
 function tick(){
   const n=new Date(), h=n.getHours();
@@ -1002,7 +1016,7 @@ $('#btn-set').onclick=()=>{
   $('#g-who').textContent=auth.signedIn?'Signed in with Google as '+auth.email+'. Sync is on.':'';
   loadBackups();
   $('#g-setup').hidden=auth.configured||!auth.redirectUri; $('#g-redirect').textContent=auth.redirectUri||'';
-  $('#s-city').value=S.city; $('#s-size').value=S.size||'small'; $('#s-head').value=S.header||'apod'; $('#s-io').value=JSON.stringify(S); $('#s-status').textContent=''; $('#s-pass').value=''; $('#s-pass').placeholder=pass?'Saved on this device':'Same passcode on every device'; syncStatus(syncMsg); open('#sc-set');
+  $('#s-city').value=S.city; $('#s-size').value=S.size||'small'; $('#s-head').value=S.header||'apod'; $('#s-uq').value=S.uq||''; $('#s-uq-row').hidden=(S.header||'apod')!=='unsplash'; $('#s-io').value=JSON.stringify(S); $('#s-status').textContent=''; $('#s-pass').value=''; $('#s-pass').placeholder=pass?'Saved on this device':'Same passcode on every device'; syncStatus(syncMsg); open('#sc-set');
 };
 $('#s-connect').onclick=async()=>{
   const v=$('#s-pass').value; if(!v){ syncStatus('Enter your passcode first.'); return; }
@@ -1041,7 +1055,8 @@ $('#s-signout').onclick=async()=>{
 $('#s-disconnect').onclick=()=>{ dropPass(); $('#s-pass').value=''; $('#s-pass').placeholder='Same passcode on every device'; syncStatus('Sync is off on this device.'); };
 $('#s-city').addEventListener('change',e=>{ const v=e.target.value.trim(); if(!v) return; const i=S.cities.indexOf(S.city); if(i>=0) S.cities[i]=v; S.city=v; fixCities(); save(); render(); loadWeather(); });
 $('#s-size').addEventListener('change',e=>{ S.size=e.target.value; save(); render(); });
-$('#s-head').addEventListener('change',e=>{ S.header=e.target.value; save(); applyHeader(); });
+$('#s-head').addEventListener('change',e=>{ S.header=e.target.value; $('#s-uq-row').hidden=S.header!=='unsplash'; save(); applyHeader(); });
+$('#s-uq').addEventListener('change',e=>{ S.uq=e.target.value.trim().slice(0,60); save(); applyHeader(); });
 $('#s-copy').onclick=async()=>{
   $('#s-io').value=JSON.stringify(S); $('#s-io').select();
   try{ await navigator.clipboard.writeText($('#s-io').value); $('#s-status').textContent='Backup copied.'; }

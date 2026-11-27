@@ -80,3 +80,6 @@ Settings → Header photo: **NASA picture of the day** (default) or **Mountains*
 
 ## Function count
 Vercel's Hobby plan allows 12 serverless functions per deployment. Sign-in is one function (`api/auth.js`, with `vercel.json` rewriting `/api/auth/login|callback|me|logout` to it; the handlers live in `lib/handlers/`). Put new server code in an existing function or `lib/` where possible. Current count: 10.
+
+### Unsplash option
+Settings → Header photo → **Unsplash photo of the day**, with your own search words (default "mountains landscape"). One landscape photo per search per day, cropped by Unsplash to banner shape; the caption credits the photographer and Unsplash and links to the photo (their attribution rules), and the page reports the use to Unsplash as their guidelines ask. Needs `UNSPLASH_ACCESS_KEY` in Vercel (free: unsplash.com/developers → New Application → Access Key). Served by the same function as the NASA picture (`/api/apod?source=unsplash`), so it doesn't add a function.

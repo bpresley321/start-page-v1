@@ -36,7 +36,32 @@ async function fromPages() {
   return rest;
 }
 
+// ?source=unsplash&q=<theme>&day=<YYYY-MM-DD>: one Unsplash photo per theme per day (the CDN caches it by URL).
+const { fromUnsplash } = require('../lib/unsplash');
+async function unsplash(req, res, qs) {
+  const key = process.env.UNSPLASH_ACCESS_KEY;
+  if (!key) return res.status(503).json({ error: 'Add UNSPLASH_ACCESS_KEY in Vercel to use Unsplash photos', setup: true });
+  const q = (qs.get('q') || 'mountains landscape').slice(0, 60);
+  try {
+    const r = await fetch('https://api.unsplash.com/photos/random?orientation=landscape&content_filter=high&query=' + encodeURIComponent(q), {
+      headers: { authorization: 'Client-ID ' + key, 'accept-version': 'v1' }, signal: AbortSignal.timeout(8000),
+    });
+    if (!r.ok) throw new Error('Unsplash ' + r.status);
+    const pic = fromUnsplash(await r.json());
+    if (!pic) throw new Error('no photo');
+    if (pic.download) fetch(pic.download, { headers: { authorization: 'Client-ID ' + key } }).catch(() => {});
+    const { download, ...out } = pic;
+    res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate=3600');
+    return res.status(200).json(out);
+  } catch (e) {
+    res.setHeader('Cache-Control', 's-maxage=300');
+    return res.status(502).json({ error: 'Unsplash is unavailable right now' });
+  }
+}
+
 module.exports = async (req, res) => {
+  const qs0 = new URL(req.url || '/', 'http://x').searchParams;
+  if (qs0.get('source') === 'unsplash') return unsplash(req, res, qs0);
   const key = process.env.NASA_API_KEY || 'DEMO_KEY';
   const debug = new URL(req.url || '/', 'http://x').searchParams.has('debug');
   const start = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
