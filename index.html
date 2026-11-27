@@ -45,6 +45,10 @@ button,input,select,textarea{font:inherit;color:inherit}
 .banner .photo{background:center 42%/cover no-repeat;display:none}
 .banner.has-photo .photo{display:block}.banner.has-photo svg{display:none}
 .banner.apod .photo{background-position:center 50%}
+/* Pictures that aren't wide (most of NASA's): blurred copy fills the banner, the whole picture sits on the right. */
+.photo-fit{position:absolute;top:0;right:0;height:100%;aspect-ratio:var(--ar,1);max-width:62%;background:right center/cover no-repeat;display:none;-webkit-mask-image:linear-gradient(90deg,transparent,#000 35%);mask-image:linear-gradient(90deg,transparent,#000 35%)}
+.banner.fit .photo{filter:blur(26px) saturate(1.15) brightness(.8);transform:scale(1.2)}
+.banner.fit .photo-fit{display:block}
 .banner.apod::after{background:linear-gradient(90deg,rgba(8,12,30,.6),rgba(8,12,30,.1) 60%),linear-gradient(180deg,rgba(8,12,30,.3),rgba(8,12,30,0) 45%,rgba(8,12,30,.35))}
 .apod-cap{position:absolute;z-index:3;right:12px;bottom:10px;max-width:42%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:rgba(255,255,255,.85);text-decoration:none;padding:2px 8px;border-radius:99px;background:rgba(10,14,30,.3);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
 .apod-cap:hover{color:#fff;background:rgba(10,14,30,.5)}
@@ -266,6 +270,7 @@ body.on-mon #btn-add,body.on-mon #btn-edit{display:none}
     <path id="trees" style="fill:var(--tree)" d=""/>
   </svg>
   <div class="photo" id="photo"></div>
+  <div class="photo-fit" id="photo-fit"></div>
   <a class="apod-cap" id="apod-cap" target="_blank" rel="noopener" hidden></a>
   <div class="bn">
     <div class="who">
@@ -880,6 +885,8 @@ function showPhoto(url,apod){
   const mode=headerMode, seq=++photoSeq, img=new Image();
   img.onload=()=>{ if(headerMode!==mode||seq<photoShown) return;   // setting changed, or a newer photo is already up
     photoShown=seq;
+    const wide=img.naturalWidth/Math.max(1,img.naturalHeight)>=2.2;   // wide enough to crop into the banner
+    const fit=!!apod&&!wide; $('#banner').classList.toggle('fit',fit); $('#photo-fit').style.setProperty('--ar',(img.naturalWidth/Math.max(1,img.naturalHeight)).toFixed(3)); $('#photo-fit').style.backgroundImage=fit?`url("${url.replace(/"/g,'%22')}")`:'';
     $('#photo').style.backgroundImage=`url("${url.replace(/"/g,'%22')}")`; $('#banner').classList.add('has-photo'); $('#banner').classList.toggle('apod',!!apod);
     const cap=$('#apod-cap'); cap.hidden=!apod;
     if(apod){ cap.href=apod.page; cap.textContent=apod.title+' · © '+apod.credit; cap.title=apod.title+' — '+apod.credit+' (NASA Astronomy Picture of the Day, '+apod.date+')'; } };
