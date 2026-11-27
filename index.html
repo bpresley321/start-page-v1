@@ -517,9 +517,31 @@ function resolve(u){ return u.replace(/\{city\}/g,encodeURIComponent(S.city||'')
 function hue(s){ let h=0; for(const c of s) h=(h*31+c.charCodeAt(0))%360; return h; }
 function hostOf(u){ try{ return new URL(u.replace(/\{city\}/g,'x')).hostname.replace(/^www\./,''); }catch(e){ return ''; } }
 // Site logo from the web, with a colored letter tile underneath in case it does not load.
+// Google's favicon service returns a plain "G" for most Google apps, so those use Google's own product icons.
+// If one of those fails to load, it falls back to the favicon service, then to the letter tile.
+const GPRODUCT='https://ssl.gstatic.com/images/branding/product/2x/';
+function googleIcon(u){
+  let x; try{ x=new URL(u.replace(/\{city\}/g,'x')); }catch(e){ return null; }
+  const h=x.hostname.replace(/^www\./,''), p=x.pathname;
+  const n= h==='mail.google.com'||h==='gmail.com'?'gmail'
+    : h==='calendar.google.com'?'calendar'
+    : h==='drive.google.com'?'drive'
+    : h==='sheets.google.com'||(h==='docs.google.com'&&p.startsWith('/spreadsheets'))?'sheets'
+    : h==='slides.google.com'||(h==='docs.google.com'&&p.startsWith('/presentation'))?'slides'
+    : h==='forms.google.com'||(h==='docs.google.com'&&p.startsWith('/forms'))?'forms'
+    : h==='docs.google.com'?'docs'
+    : h==='maps.google.com'||(h==='google.com'&&p.startsWith('/maps'))?'maps'
+    : h==='photos.google.com'?'photos'
+    : h==='keep.google.com'?'keep'
+    : h==='meet.google.com'?'meet'
+    : h==='contacts.google.com'?'contacts'
+    : null;
+  return n?GPRODUCT+n+'_2020q4_48dp.png':null;
+}
 function logo(l){
-  const host=hostOf(l.u), ch=(l.t.trim()[0]||host[0]||'?').toUpperCase();
-  const img=host?`<img src="https://www.google.com/s2/favicons?domain=${esc(host)}&sz=64" alt="" loading="lazy" onerror="this.remove()">`:'';
+  const host=hostOf(l.u), ch=(l.t.trim()[0]||host[0]||'?').toUpperCase(), fav=`https://www.google.com/s2/favicons?domain=${host}&sz=64`, g=googleIcon(l.u);
+  const img=!host?'':g?`<img src="${esc(g)}" data-fb="${esc(fav)}" alt="" loading="lazy" onerror="if(this.dataset.fb){this.src=this.dataset.fb;this.removeAttribute('data-fb')}else this.remove()">`
+    :`<img src="${esc(fav)}" alt="" loading="lazy" onerror="this.remove()">`;
   return `<span class="logo" aria-hidden="true"><i class="tile" style="background:hsl(${hue(host||l.t)} 45% 38%)">${esc(ch)}</i>${img}</span>`;
 }
 function findGroup(id){ return S.groups.find(g=>g.id===id); }
