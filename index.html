@@ -891,7 +891,7 @@ async function applyHeader(){
   if(mode==='mountain'){ showPhoto('header.jpg',null); return; }
   let last=null; try{ last=JSON.parse(localStorage.getItem('startpage-apod2')||'null'); localStorage.removeItem('startpage-apod'); }catch(e){}
   showPhoto(last&&last.url?last.url:'header.jpg', last&&last.url?last:null);
-  const d=await getJson('/api/apod?v=2').catch(()=>null);
+  const d=await getJson('/api/apod?v=3').catch(()=>null);
   if((!d||d.error||!d.url)&&headerMode==='apod'&&last){ try{ localStorage.removeItem('startpage-apod2'); }catch(e){} showPhoto('header.jpg',null); }
   if(d&&d.url&&!d.error&&headerMode==='apod'){
     try{ localStorage.setItem('startpage-apod2',JSON.stringify(d)); }catch(e){}
