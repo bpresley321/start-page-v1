@@ -1,7 +1,24 @@
 'use strict';
 // Header photo: NASA Astronomy Picture of the Day. Uses NASA_API_KEY if set (free at api.nasa.gov), else DEMO_KEY;
 // the answer is cached for 2 hours, so either stays far under NASA's limits.
-const { pickApod, placeholder, parseApodPage, pageUrl } = require('../lib/apod');
+const { pickApod, placeholder, parseApodPage, pageUrl, parseScienceFeed, parseSciencePage, SCIENCE_FEED } = require('../lib/apod');
+
+// science.nasa.gov feed -> newest entry whose page has a real picture.
+async function fromScience() {
+  const r = await fetch(SCIENCE_FEED, { headers: { 'user-agent': 'Mozilla/5.0 (personal start page)' }, signal: AbortSignal.timeout(6000) });
+  if (!r.ok) return null;
+  const entries = parseScienceFeed(await r.text()).slice(0, 3);
+  const got = await Promise.all(entries.map(async (e) => {
+    try {
+      const p = await fetch(e.link, { headers: { 'user-agent': 'Mozilla/5.0 (personal start page)' }, signal: AbortSignal.timeout(6000) });
+      return p.ok ? parseSciencePage(await p.text(), e) : null;
+    } catch { return null; }
+  }));
+  return got.find(Boolean) || null;
+}
+async function fallback() {
+  return (await fromScience().catch(() => null)) || (await fromPages().catch(() => null));
+}
 
 // When NASA's API sends only stand-ins, read the newest of the last 7 classic APOD pages instead.
 async function fromPages() {
@@ -30,16 +47,16 @@ module.exports = async (req, res) => {
       res.setHeader('Cache-Control', 'no-store');
       return res.status(200).json({
         status: r.status, key: process.env.NASA_API_KEY ? 'your key' : 'DEMO_KEY',
-        picked: pickApod(raw), fromPages: pickApod(raw) ? undefined : await fromPages(),
+        picked: pickApod(raw), fromScience: await fromScience().catch((e) => ({ error: String(e.message || e) })), fromPages: await fromPages().catch((e) => ({ error: String(e.message || e) })),
         entries: Array.isArray(raw) ? raw.map((x) => ({ date: x.date, media_type: x.media_type, title: x.title, url: x.url, hdurl: x.hdurl, copyright: x.copyright, explanation: String(x.explanation || '').slice(0, 60), skipped: placeholder(x) })) : raw,
       });
     }
-    const pic = pickApod(raw) || await fromPages();
+    const pic = pickApod(raw) || await fallback();
     if (!pic) throw new Error('no image this week');
     res.setHeader('Cache-Control', 's-maxage=7200, stale-while-revalidate=86400');
     return res.status(200).json(pic);
   } catch (e) {
-    const pic = await fromPages().catch(() => null);
+    const pic = await fallback();
     if (pic) { res.setHeader('Cache-Control', 's-maxage=7200, stale-while-revalidate=86400'); return res.status(200).json(pic); }
     res.setHeader('Cache-Control', 's-maxage=300');
     return res.status(502).json({ error: 'Picture of the day is unavailable right now' });

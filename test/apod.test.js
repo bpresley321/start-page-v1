@@ -80,3 +80,21 @@ test('apod api: stand-in API answer falls back to the newest classic page', asyn
     assert.deepStrictEqual([r.body.title, r.body.date, r.body.credit, 'explanation' in r.body], ['Globular Cluster M15 Deep Field', yest, 'Alvaro Ibanez Perez', false]);
   } finally { global.fetch = real; }
 });
+
+const { parseScienceFeed, parseSciencePage } = require('../lib/apod');
+test('apod science.nasa.gov: feed titles/dates and page og:image + credit', () => {
+  const feed = `<?xml version="1.0"?><rss><channel><title>APOD</title>
+  <item><title>APOD: 2026 November 27 &#8211; The Moon Watchers</title><link>https://science.nasa.gov/image-article/apod-2026-november-27-the-moon-watchers/</link><pubDate>Fri, 27 Nov 2026 05:00:00 +0000</pubDate></item>
+  <item><title><![CDATA[APOD: 2026 November 26 – Eye in the Sky: The Milky Way over Lençóis]]></title><link>https://science.nasa.gov/image-article/apod-2026-november-26-eye-in-the-sky/</link><media:content url="https://assets.science.nasa.gov/content/dam/apod/2026/nov/lencois.jpg/renditions/web.1280.jpeg" medium="image"/></item>
+  </channel></rss>`;
+  const items = parseScienceFeed(feed);
+  assert.deepStrictEqual(items.map((i) => [i.date, i.title]), [['2026-11-27', 'The Moon Watchers'], ['2026-11-26', 'Eye in the Sky: The Milky Way over Lençóis']]);
+  const page = `<html><head><meta property="og:image" content="https://assets.science.nasa.gov/content/dam/science/cds/apod/apod/2026/november/moonwatchers.jpg/jcr:content/renditions/cq5dam.web.1280.1280.jpeg"/></head>
+   <body><h1>The Moon Watchers</h1><p>Image Credit &amp; Copyright: Jane Doe (Sky Club)</p><p>Explanation: Two people …</p></body></html>`;
+  const r = parseSciencePage(page, items[0]);
+  assert.deepStrictEqual([r.title, r.date, r.credit, r.page], ['The Moon Watchers', '2026-11-27', 'Jane Doe (Sky Club)', items[0].link]);
+  assert.match(r.url, /moonwatchers\.jpg/);
+  assert.match(parseSciencePage('<meta content="https://x/a.jpg" property="og:image">', items[1]).url, /lencois\.jpg/); // feed image wins
+  assert.strictEqual(parseSciencePage('<meta property="og:image" content="https://science.nasa.gov/x/nasa-logo@2x.png">', items[0]), null);
+  assert.strictEqual(parseSciencePage('<p>no image</p>', items[0]), null);
+});
