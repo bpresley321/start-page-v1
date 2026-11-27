@@ -70,6 +70,7 @@ test('monitor: one failing source does not break the rest', async () => {
   const real = global.fetch;
   global.fetch = async (u) => {
     if (u.includes('weather.gov')) return { ok: true, json: async () => ({ features: [] }) };
+    if (u.includes('api.open-meteo.com/v1/forecast')) return { ok: true, json: async () => ({ utc_offset_seconds: -21600, current: { uv_index: 1 }, daily: { time: ['2026-11-21', '2026-11-22'], uv_index_max: [4.2, 3.1] } }) };
     if (u.includes('air-quality')) return { ok: false, status: 500 };
     if (u.includes('weatherford-30day')) return { ok: false, status: 404 };
     if (u.includes('waterdatafortexas')) return { ok: true, text: async () => '<title>Lake Weatherford: 57.6% full as of 2026-11-21</title>' };
@@ -80,7 +81,7 @@ test('monitor: one failing source does not break the rest', async () => {
   };
   try {
     const rows = await M.monitor(place, { stormRisk: async () => ({ today: { none: true }, tomorrow: { none: true } }) });
-    assert.deepStrictEqual(rows.map((r) => r.id + ':' + r.status), ['nws:green', 'spc:green', 'lake:yellow', 'aqi:gray', 'dfw:green', 'spy:yellow']);
+    assert.deepStrictEqual(rows.map((r) => r.id + ':' + r.status), ['nws:green', 'spc:green', 'lake:yellow', 'aqi:gray', 'uv:green', 'dfw:green', 'spy:yellow']);
   } finally { global.fetch = real; }
 });
 
@@ -110,4 +111,19 @@ test('stickers: every row has a short label and value', () => {
     M.lakeRow(null),
   ];
   assert.deepStrictEqual(rows.map((r) => r.label + ' ' + r.short), ['NWS None', 'Storms Tmrw Slight', 'Lake 57.6%', 'AQI 41', 'DFW On time', 'SPY +1.2%', 'Lake n/a']);
+});
+
+test('uv: today\'s peak with time; tomorrow after 5 PM; colors', () => {
+  const j = (maxes) => ({ utc_offset_seconds: -21600, current: { uv_index: 2.4 },
+    daily: { time: ['2026-11-27', '2026-11-28'], uv_index_max: maxes },
+    hourly: { time: ['2026-11-27T11:00', '2026-11-27T12:00', '2026-11-27T13:00', '2026-11-28T12:00'], uv_index: [3, 4.6, 4.1, 3.9] } });
+  const noon = Date.parse('2026-11-27T12:00:00-06:00'), eve = Date.parse('2026-11-27T18:00:00-06:00');
+  const a = M.uvRow(j([4.6, 3.9]), place, noon);
+  assert.deepStrictEqual([a.status, a.value, a.short], ['green', 'Today max 5 · Moderate', '5']);
+  assert.match(a.detail, /^Now 2 · peak around 12 PM · Fort Worth · sunscreen midday$/);
+  const b = M.uvRow(j([4.6, 3.9]), place, eve);
+  assert.deepStrictEqual([b.value, b.short], ['Tomorrow max 4 · Moderate', 'Tmrw 4']);
+  assert.strictEqual(M.uvRow(j([6.4, 1]), place, noon).status, 'yellow');
+  assert.strictEqual(M.uvRow(j([9, 1]), place, noon).status, 'red');
+  assert.strictEqual(M.uvRow({}, place).status, 'gray');
 });

@@ -47,7 +47,7 @@ test('weather: geocodes with state filter then shapes the forecast', async () =>
       { name: 'Fort Worth', admin1: 'Texas', latitude: 32.75, longitude: -97.33 }] }) };
     return { ok: true, json: async () => ({
       current: { temperature_2m: 54.4, apparent_temperature: 50.2, weather_code: 2, wind_speed_10m: 11.3, wind_direction_10m: 202.6, wind_gusts_10m: 19.8 },
-      daily: { time: ['2026-11-01', '2026-11-02'], weather_code: [0, 63], temperature_2m_max: [58.1, 49], temperature_2m_min: [41, 38.5] } }) };
+      daily: { time: ['2026-11-01', '2026-11-02'], weather_code: [0, 63], temperature_2m_max: [58.1, 49], temperature_2m_min: [41, 38.5], sunrise: ['2026-11-01T07:48', '2026-11-02T06:49'], sunset: ['2026-11-01T18:41', '2026-11-02T17:40'] } }) };
   };
   const res = mkRes();
   await require('../api/weather')({ url: '/api/weather?city=Fort%20Worth%2C%20TX' }, res);
@@ -58,6 +58,8 @@ test('weather: geocodes with state filter then shapes the forecast', async () =>
   assert.match(calls.find((u) => u.includes('/v1/forecast')), /wind_direction_10m,wind_gusts_10m/);
   assert.strictEqual(res.body.place, 'Fort Worth, Texas');
   assert.strictEqual(res.body.days[1].text, 'Rain');
+  assert.deepStrictEqual([res.body.days[0].sunrise, res.body.days[0].sunset], ['2026-11-01T07:48', '2026-11-01T18:41']);
+  assert.match(calls.find((u) => u.includes('/v1/forecast')), /sunrise,sunset/);
 });
 
 test('weather: empty city is 400, unknown place is 404', async () => {

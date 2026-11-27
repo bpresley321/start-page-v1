@@ -24,7 +24,7 @@ module.exports = async (req, res) => {
       'https://api.open-meteo.com/v1/forecast' +
         `?latitude=${place.latitude}&longitude=${place.longitude}` +
         '&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m' +
-        '&daily=weather_code,temperature_2m_max,temperature_2m_min' +
+        '&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset' +
         '&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=5'
     );
     const c = w.current, d = w.daily;
@@ -44,6 +44,8 @@ module.exports = async (req, res) => {
         text: describe(d.weather_code[i]),
         hi: Math.round(d.temperature_2m_max[i]),
         lo: Math.round(d.temperature_2m_min[i]),
+        sunrise: d.sunrise ? d.sunrise[i] : null,   // local time at the city, e.g. 2026-11-27T07:11
+        sunset: d.sunset ? d.sunset[i] : null,
       })),
       storm: await storm,
     });
