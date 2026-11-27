@@ -77,3 +77,6 @@ Monitoring tab → Shopping: paste a product link (optionally a target price). `
 
 ## Header photo
 Settings → Header photo: **NASA picture of the day** (default) or **Mountains** (header.jpg). `/api/apod` returns the newest Astronomy Picture of the Day image from the past week (video days are skipped), cached 2 hours; the title and credit link to NASA's page. Set `NASA_API_KEY` in Vercel (free at api.nasa.gov) to avoid the shared DEMO_KEY limits. If NASA can't be reached, the mountain photo stays.
+
+## Function count
+Vercel's Hobby plan allows 12 serverless functions per deployment. Sign-in is one function (`api/auth.js`, with `vercel.json` rewriting `/api/auth/login|callback|me|logout` to it; the handlers live in `lib/handlers/`). Put new server code in an existing function or `lib/` where possible. Current count: 10.

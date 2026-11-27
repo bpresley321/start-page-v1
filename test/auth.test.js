@@ -53,7 +53,7 @@ test('auth: ID token checks audience, issuer, expiry, verified email and allowli
 
 test('login: redirects to Google with state cookie and the right callback', async () => {
   const res = mkRes();
-  await require('../api/auth/login')(req('/api/auth/login'), res);
+  await require('../lib/handlers/auth-login')(req('/api/auth/login'), res);
   assert.strictEqual(res.statusCode, 302);
   const u = new URL(res.headers.location);
   assert.strictEqual(u.host, 'accounts.google.com');
@@ -69,7 +69,7 @@ test('callback: good sign-in sets a session; wrong state, stranger and Google er
     assert.match(String(opts.body), /client_secret=shh/);
     return { ok: true, json: async () => ({ id_token: jwt(claims) }) };
   };
-  const cb = require('../api/auth/callback');
+  const cb = require('../lib/handlers/auth-callback');
   let res = mkRes(); await cb(req('/api/auth/callback?code=c&state=abc', 'sp_state=abc'), res);
   assert.strictEqual(res.headers.location, '/');
   const sess = res.headers['set-cookie'].find((c) => c.startsWith('sp_session=')).split(';')[0].split('=')[1];
@@ -86,7 +86,7 @@ test('callback: good sign-in sets a session; wrong state, stranger and Google er
 });
 
 test('me: reports setup and who is signed in', async () => {
-  const me = require('../api/auth/me');
+  const me = require('../lib/handlers/auth-me');
   let res = mkRes(); await me(req('/api/auth/me'), res);
   assert.deepStrictEqual([res.body.configured, res.body.signedIn], [true, false]);
   const t = A.makeSession(A.config(), 'ben@example.com');
@@ -144,4 +144,18 @@ test('calendar: needs sign-in, merges calendars, and one broken calendar does no
   assert.deepStrictEqual(seen.sort(), ['https://cal.test/allison.ics', 'https://cal.test/broken.ics', 'https://cal.test/mine.ics']);
   assert.deepStrictEqual(res.body.calendars.map((c) => [c.name, !!c.error]), [['Ben Presley', false], ['Allison', false], ['Calendar 4', true]]);
   assert.deepStrictEqual(res.body.events.map((e) => [e.title, e.cal]).sort(), [['Dentist', 0], ['Recital', 1]]);
+});
+
+test('auth router: one function serves login, callback, me and logout', async () => {
+  const router = require('../api/auth');
+  assert.strictEqual(router.action({ url: '/api/auth/callback?code=c&state=s' }), 'callback');
+  assert.strictEqual(router.action({ url: '/api/auth?action=me' }), 'me');
+  assert.strictEqual(router.action({ url: '/api/auth?action=callback&code=c' }), 'callback');
+  let res = mkRes(); await router(req('/api/auth/me'), res);
+  assert.strictEqual(res.body.configured, true);
+  res = mkRes(); await router(req('/api/auth?action=login'), res);
+  assert.strictEqual(res.statusCode, 302);
+  assert.strictEqual(new URL(res.headers.location).searchParams.get('redirect_uri'), 'https://start.test/api/auth/callback');
+  res = mkRes(); await router(req('/api/auth/nope'), res);
+  assert.strictEqual(res.statusCode, 404);
 });

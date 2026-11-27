@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/api/auth/:action(login|callback|me|logout)", "destination": "/api/auth?action=:action" }
+  ]
+}
