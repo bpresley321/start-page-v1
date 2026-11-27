@@ -74,3 +74,6 @@ The Weather card shows the Storm Prediction Center's severe-weather outlook (tod
 
 ## Shopping watches
 Monitoring tab → Shopping: paste a product link (optionally a target price). `/api/price` (signed-in only) reads the price from the page's schema.org Product data, then price meta tags, then Shopify's product JSON. Prices are re-checked every 3 hours while the page is open on any device; the list (with first, lowest and current price) syncs like your links. Green = at or below target, yellow = below the price when added, gray = out of stock or the store blocked the check. Home shows only the green/yellow ones.
+
+## Header photo
+Settings → Header photo: **NASA picture of the day** (default) or **Mountains** (header.jpg). `/api/apod` returns the newest Astronomy Picture of the Day image from the past week (video days are skipped), cached 2 hours; the title and credit link to NASA's page. Set `NASA_API_KEY` in Vercel (free at api.nasa.gov) to avoid the shared DEMO_KEY limits. If NASA can't be reached, the mountain photo stays.

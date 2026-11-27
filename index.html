@@ -44,6 +44,10 @@ button,input,select,textarea{font:inherit;color:inherit}
 .banner svg,.banner .photo{position:absolute;inset:0;width:100%;height:100%}
 .banner .photo{background:center 42%/cover no-repeat;display:none}
 .banner.has-photo .photo{display:block}.banner.has-photo svg{display:none}
+.banner.apod .photo{background-position:center 50%}
+.banner.apod::after{background:linear-gradient(90deg,rgba(8,12,30,.6),rgba(8,12,30,.1) 60%),linear-gradient(180deg,rgba(8,12,30,.3),rgba(8,12,30,0) 45%,rgba(8,12,30,.35))}
+.apod-cap{position:absolute;z-index:3;right:12px;bottom:10px;max-width:42%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:rgba(255,255,255,.85);text-decoration:none;padding:2px 8px;border-radius:99px;background:rgba(10,14,30,.3);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.apod-cap:hover{color:#fff;background:rgba(10,14,30,.5)}
 .banner::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(8,12,30,.55),rgba(8,12,30,0) 55%),linear-gradient(180deg,rgba(8,12,30,.25),rgba(8,12,30,0) 50%)}
 .bn{position:relative;z-index:1;max-width:1500px;margin:0 auto;padding:14px 12px 44px;display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px 14px;min-height:150px;box-sizing:border-box}
 .who{flex:1 1 220px;min-width:0;text-shadow:0 1px 6px rgba(0,0,0,.45)}
@@ -205,6 +209,7 @@ body.locked .gate{display:flex}body.locked #app,body.locked #mon,body.locked .pt
 .stk-plain{background:var(--accent-soft)}
 .stk-msg{color:var(--muted);font-size:.9em;padding:2px}
 .stk-go{display:none}
+.mbadge[hidden],.apod-cap[hidden]{display:none}
 .mbadge{display:inline-block;margin-left:6px;min-width:18px;padding:0 6px;border-radius:99px;color:#fff;font-size:11px;line-height:17px;text-align:center;text-shadow:none}
 body.on-mon #btn-add,body.on-mon #btn-edit{display:none}
 .gate .panel{max-width:360px;text-align:center;align-items:center}
@@ -261,6 +266,7 @@ body.on-mon #btn-add,body.on-mon #btn-edit{display:none}
     <path id="trees" style="fill:var(--tree)" d=""/>
   </svg>
   <div class="photo" id="photo"></div>
+  <a class="apod-cap" id="apod-cap" target="_blank" rel="noopener" hidden></a>
   <div class="bn">
     <div class="who">
       <h1 id="greet">Start page</h1>
@@ -318,6 +324,7 @@ body.on-mon #btn-add,body.on-mon #btn-edit{display:none}
   <div class="panel">
     <h3>Settings</h3>
     <label for="s-city">Open weather city (rename this tab)<input id="s-city" type="text" autocomplete="off" placeholder="Fort Worth, TX"></label>
+    <label for="s-head">Header photo<select id="s-head"><option value="apod">NASA picture of the day</option><option value="mountain">Mountains</option></select></label>
     <label for="s-size">Text size<select id="s-size"><option value="xsmall">Extra small</option><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select></label>
     <div id="g-ui" hidden><div class="status" id="g-who"></div><div class="row"><button type="button" class="btn" id="s-signout">Sign out on this device</button></div></div>
     <div id="pass-ui">
@@ -354,6 +361,7 @@ function defaults(){
     city:'Fort Worth, TX', size:'small', name:'Ben', m1:true, m2:true, m3:true, m4:true, m5:true, m6:true, m7:true,
     tasks:[{id:uid(),t:'Find birth certificates',done:false}],
     shop:[],
+    header:'apod',
     groups:[
       {id:uid(),name:'Popular',col:2,icons:true,links:[L('Gmail','https://mail.google.com'),L('YouTube','https://www.youtube.com'),L('Reddit','https://www.reddit.com'),L('Facebook','https://www.facebook.com'),L('Sheets','https://docs.google.com/spreadsheets'),L('Docs','https://docs.google.com/document'),L('Calendar','https://calendar.google.com'),L('Maps','https://maps.google.com'),L('Drive','https://drive.google.com'),L('GitHub','https://github.com'),L('Claude','https://claude.ai'),L('Amazon','https://www.amazon.com')]},
       {id:uid(),name:'Weather',col:3,links:weatherLinks()},
@@ -512,6 +520,7 @@ function colOf(g){ const c=+g.col; return c>=1&&c<=4?c:3; }
 function ago(iso){ if(!iso) return ''; const m=Math.round((Date.now()-new Date(iso))/60000); if(m<1) return 'now'; if(m<60) return m+' min ago'; const h=Math.round(m/60); if(h<24) return h+' hr ago'; return Math.round(h/24)+' d ago'; }
 
 /* ---------- cards ---------- */
+let headerMode=null, photoSeq=0, photoShown=0;   // header photo: which mode, and which load is newest
 const cache={weather:null,wx:{},news:{},sports:null,cal:null,snow:null,mon:null};
 let addingCity=false;
 function tasksCard(){
@@ -657,6 +666,7 @@ function groupCard(g,i){
   </section>`;
 }
 function render(){
+  if(typeof applyHeader==='function'&&headerMode&&((S.header==='mountain'?'mountain':'apod')!==headerMode)) applyHeader();
   document.body.dataset.size=S.size||'small';
   $('#app').classList.toggle('editing',editing);
   $('#btn-edit').textContent=editing?'Done':'Edit';
@@ -862,10 +872,31 @@ async function loadNews(key){ cache.news[key]=null; softRender(); cache.news[key
   let d='',x=-10,i=0;
   while(x<1210){ const h=7+((i*37)%7), w=5+((i*13)%4); d+=`M${x} 120 L${x+w/2} ${120-h} L${x+w} 120Z `; x+=w*0.7+((i*7)%5); i++; }
   $('#trees').setAttribute('d',d);
-  const img=new Image();
-  img.onload=()=>{ $('#photo').style.backgroundImage='url(header.jpg)'; $('#banner').classList.add('has-photo'); };
-  img.src='header.jpg';
+  applyHeader();
 })();
+// Header photo: NASA's Astronomy Picture of the Day (default) or the mountain photo. The mountain photo shows
+// first and stays if NASA's picture can't load. The last picture is remembered on this device so it shows at once.
+function showPhoto(url,apod){
+  const mode=headerMode, seq=++photoSeq, img=new Image();
+  img.onload=()=>{ if(headerMode!==mode||seq<photoShown) return;   // setting changed, or a newer photo is already up
+    photoShown=seq;
+    $('#photo').style.backgroundImage=`url("${url.replace(/"/g,'%22')}")`; $('#banner').classList.add('has-photo'); $('#banner').classList.toggle('apod',!!apod);
+    const cap=$('#apod-cap'); cap.hidden=!apod;
+    if(apod){ cap.href=apod.page; cap.textContent=apod.title+' · © '+apod.credit; cap.title=apod.title+' — '+apod.credit+' (NASA Astronomy Picture of the Day, '+apod.date+')'; } };
+  img.src=url;
+}
+async function applyHeader(){
+  const mode=(S&&S.header)==='mountain'?'mountain':'apod';
+  if(mode===headerMode) return; headerMode=mode;
+  if(mode==='mountain'){ showPhoto('header.jpg',null); return; }
+  let last=null; try{ last=JSON.parse(localStorage.getItem('startpage-apod')||'null'); }catch(e){}
+  showPhoto(last&&last.url?last.url:'header.jpg', last&&last.url?last:null);
+  const d=await getJson('/api/apod').catch(()=>null);
+  if(d&&d.url&&!d.error&&headerMode==='apod'){
+    try{ localStorage.setItem('startpage-apod',JSON.stringify(d)); }catch(e){}
+    if(!last||last.url!==d.url) showPhoto(d.url,d);
+  }
+}
 function tick(){
   const n=new Date(), h=n.getHours();
   $('#greet').textContent=(h<12?'Good morning':h<18?'Good afternoon':'Good evening')+(S.name?', '+S.name:'');
@@ -963,7 +994,7 @@ $('#btn-set').onclick=()=>{
   $('#g-who').textContent=auth.signedIn?'Signed in with Google as '+auth.email+'. Sync is on.':'';
   loadBackups();
   $('#g-setup').hidden=auth.configured||!auth.redirectUri; $('#g-redirect').textContent=auth.redirectUri||'';
-  $('#s-city').value=S.city; $('#s-size').value=S.size||'small'; $('#s-io').value=JSON.stringify(S); $('#s-status').textContent=''; $('#s-pass').value=''; $('#s-pass').placeholder=pass?'Saved on this device':'Same passcode on every device'; syncStatus(syncMsg); open('#sc-set');
+  $('#s-city').value=S.city; $('#s-size').value=S.size||'small'; $('#s-head').value=S.header||'apod'; $('#s-io').value=JSON.stringify(S); $('#s-status').textContent=''; $('#s-pass').value=''; $('#s-pass').placeholder=pass?'Saved on this device':'Same passcode on every device'; syncStatus(syncMsg); open('#sc-set');
 };
 $('#s-connect').onclick=async()=>{
   const v=$('#s-pass').value; if(!v){ syncStatus('Enter your passcode first.'); return; }
@@ -1002,6 +1033,7 @@ $('#s-signout').onclick=async()=>{
 $('#s-disconnect').onclick=()=>{ dropPass(); $('#s-pass').value=''; $('#s-pass').placeholder='Same passcode on every device'; syncStatus('Sync is off on this device.'); };
 $('#s-city').addEventListener('change',e=>{ const v=e.target.value.trim(); if(!v) return; const i=S.cities.indexOf(S.city); if(i>=0) S.cities[i]=v; S.city=v; fixCities(); save(); render(); loadWeather(); });
 $('#s-size').addEventListener('change',e=>{ S.size=e.target.value; save(); render(); });
+$('#s-head').addEventListener('change',e=>{ S.header=e.target.value; save(); applyHeader(); });
 $('#s-copy').onclick=async()=>{
   $('#s-io').value=JSON.stringify(S); $('#s-io').select();
   try{ await navigator.clipboard.writeText($('#s-io').value); $('#s-status').textContent='Backup copied.'; }
