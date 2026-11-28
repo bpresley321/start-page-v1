@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-/* Layout: mountain banner on top, then 4 fixed columns. 1 = icons + tasks + weather, 2 = news, 3 = links, 4 = spare. */
+/* Layout: banner, then 4 columns. 1 = weather, monitoring pills, shopping, Purgatory cam, tasks; 2 = news; 3 = links; 4 = calendar, cycling, sports. */
 :root{
   --bg:#e6ecef; --panel:#ffffff; --ink:#15202a; --muted:#5b6a77; --line:#d8e0e5;
   --accent:#0f6b62; --accent-ink:#ffffff; --accent-soft:#dcefec; --warn:#b3261e;
@@ -747,12 +747,12 @@ function render(){
   const addGroup=`<section class="card edit-only" aria-label="Add group"><h2>New group</h2><form class="add" data-form="group"><input id="newgroup" placeholder="Group name" aria-label="Group name" autocomplete="off"><button class="btn pri" type="submit">Add</button></form></section>`;
   const c4=byCol(4);
   // The camera card lives in #cam-host and is never re-rendered, so the video is not restarted by data refreshes.
-  $('#c1-top').innerHTML=`${byCol(1)}${weatherCard()}`;
+  $('#c1-top').innerHTML=`${byCol(1)}${weatherCard()}${monCard()}${shopCard()}`;
   $('#c1-bottom').innerHTML=tasksCard();
   $('#c2').innerHTML=`${byCol(2)}${NEWS.map(n=>newsCard(n[0],n[1])).join('')}`;
   $('#c3').innerHTML=byCol(3);
   renderShop();
-  $('#c4').innerHTML=`${monCard()}${shopCard()}${calendarCard()}${cyclingCard()}${sportsCard()}${c4}${addGroup}`;
+  $('#c4').innerHTML=`${calendarCard()}${cyclingCard()}${sportsCard()}${c4}${addGroup}`;
   const bar=document.querySelector('.wtabs'), on=bar&&bar.querySelector('.wtab.on');
   if(on) bar.scrollLeft=Math.max(0,on.offsetLeft-bar.offsetLeft-bar.clientWidth/2+on.offsetWidth/2);
 }
