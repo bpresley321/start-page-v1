@@ -113,5 +113,5 @@ test('news: Techmeme feed (RSS with HTML descriptions) parses', async () => {
   const res = mkRes();
   await require('../api/news')({ url: '/api/news?feed=techmeme' }, res);
   assert.strictEqual(res.code, 200);
-  assert.deepStrictEqual(res.body.items.map((i) => i.title), ['Apple announces new chips for its Mac lineup (Jane Doe/Bloomberg)', 'Startup raises $50M & more (John Roe/TechCrunch)']);
+  assert.deepStrictEqual(res.body.items.map((i) => i.title), ['Apple announces new chips for its Mac lineup', 'Startup raises $50M & more']);
 });

@@ -12,7 +12,9 @@ module.exports = async (req, res) => {
       signal: AbortSignal.timeout(8000),
     });
     if (!r.ok) throw new Error('Feed returned ' + r.status);
-    const items = parseFeed(await r.text(), 10);
+    let items = parseFeed(await r.text(), 10);
+    // Techmeme ends each headline with "(Reporter/Outlet)"; drop it so headlines match the other cards.
+    if (key === 'techmeme') items = items.map((i) => ({ ...i, title: i.title.replace(/\s*\([^()]*\/[^()]*\)\s*$/, '').trim() || i.title }));
     res.setHeader('Cache-Control', 's-maxage=900, stale-while-revalidate=3600');
     return res.status(200).json({ title: feed.title, items });
   } catch (e) {
