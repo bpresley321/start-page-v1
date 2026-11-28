@@ -11,7 +11,22 @@ async function one(cfg) {
   return s;
 }
 
+// ?cycling=1: men's road cycling (Wikipedia) for the Cycling card. Lives here to stay under Vercel's function limit.
+const { cycling } = require('../lib/cycling');
+async function cyclingRoute(res) {
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(new Date());
+  try {
+    const data = await cycling(today);
+    res.setHeader('Cache-Control', 's-maxage=10800, stale-while-revalidate=86400');
+    return res.status(200).json({ ...data, today });
+  } catch (e) {
+    res.setHeader('Cache-Control', 's-maxage=300');
+    return res.status(502).json({ error: 'Cycling is unavailable right now' });
+  }
+}
+
 module.exports = async (req, res) => {
+  if (new URL(req.url || '/', 'http://x').searchParams.get('cycling')) return cyclingRoute(res);
   const settled = await Promise.allSettled(TEAMS.map(one));
   const teams = settled.map((r, i) => {
     const base = { key: TEAMS[i].key, label: TEAMS[i].label };

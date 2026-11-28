@@ -245,6 +245,16 @@ body.on-mon #btn-add,body.on-mon #btn-edit{display:none}
 .cam{aspect-ratio:16/9;background:#000;border-radius:8px;overflow:hidden}
 .cam iframe{display:block;width:100%;height:100%;border:0}
 .snow{margin:0 0 6px}
+.cyc .up{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:0 8px;align-items:baseline;font-size:.9em;margin-bottom:4px}
+.cyc .up .d{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.cyc .up .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cyc .up .wtrow{font-weight:600}
+.cyc .cls{font-size:.72em;font-weight:700;padding:0 6px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
+.cyc .cls.wt{background:var(--accent);border-color:var(--accent);color:#fff}
+.cyc .res{padding:4px 0 3px;border-top:1px solid var(--line);font-size:.9em;line-height:1.3}
+.cyc .rn{display:flex;justify-content:space-between;gap:6px}.cyc .rn b{font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cyc .rn span{color:var(--muted);font-size:.9em;white-space:nowrap}
+.cyc .pod{color:var(--muted);font-size:.95em}.cyc .pod b{color:var(--ink);font-weight:600}
+.cyc .us{font-size:.95em}.cyc .us b{font-weight:700}
 .storm{display:flex;flex-wrap:wrap;align-items:center;gap:3px 4px;margin:6px 0 4px;font-size:.85em;color:var(--muted);text-decoration:none}
 .storm .risk{margin-right:4px;font-weight:600;padding:0 6px;border-radius:99px;color:#1d2a1d;border:1px solid rgba(0,0,0,.08)}
 .storm .risk.none{background:var(--accent-soft);color:var(--muted)}
@@ -550,7 +560,7 @@ function ago(iso){ if(!iso) return ''; const m=Math.round((Date.now()-new Date(i
 
 /* ---------- cards ---------- */
 let headerMode=null, photoSeq=0, photoShown=0;   // header photo: which mode, and which load is newest
-const cache={weather:null,wx:{},news:{},sports:null,cal:null,snow:null,mon:null};
+const cache={weather:null,wx:{},news:{},sports:null,cal:null,snow:null,mon:null,cyc:null};
 let addingCity=false;
 function tasksCard(){
   const d=S.tasks.filter(t=>t.done).length, n=S.tasks.length;
@@ -669,6 +679,31 @@ function calendarCard(){
   const key=c.calendars.length>1||c.calendars.some(x=>x.error)?`<div class="cal-key">${c.calendars.map(x=>x.error?`<span class="bad">⚠ ${esc(x.name)} didn't load</span>`:`<span><i class="dot" style="background:${CAL_COLORS[x.idx%CAL_COLORS.length]}"></i>${esc(x.name)}</span>`).join('')}</div>`:'';
   return `<section class="card" aria-labelledby="h-cal">${head}${body}${key}</section>`;
 }
+/* ---------- Cycling (men's WorldTour + ProSeries, from Wikipedia) ---------- */
+function cycDate(a,b){
+  const f=d=>fromKey(d).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  if(a===b) return f(a);
+  const A=fromKey(a), B=fromKey(b);
+  return A.getMonth()===B.getMonth()?f(a)+'–'+B.getDate():f(a)+'–'+f(b);
+}
+// Last name, keeping particles: "Mathieu van der Poel" -> "van der Poel", "Isaac del Toro" -> "del Toro"
+function surname(n){ const w=String(n).trim().split(/\s+/); if(w.length<2) return n; let i=w.length-1; while(i>1&&/^(van|von|der|den|de|del|della|di|da|du|le|la|ten|ter|st\.?)$/i.test(w[i-1])) i--; return w.slice(i).join(' '); }
+const ord=n=>n+(['th','st','nd','rd'][(n%100-20)%10]||['th','st','nd','rd'][n%100]||'th');
+function cyclingCard(){
+  const c=cache.cyc, head=`<h2 id="h-cyc">Cycling<span class="tag">Next races</span></h2>`;
+  if(!c) return `<section class="card cyc" aria-labelledby="h-cyc">${head}<div class="empty">Loading…</div></section>`;
+  if(c.error) return `<section class="card cyc" aria-labelledby="h-cyc">${head}<div class="empty" role="alert">${esc(c.error)} <button class="btn sm" data-act="retry-cyc" type="button">Retry</button></div></section>`;
+  const tag=cls=>`<span class="cls${cls==='WT'?' wt':''}">${cls}</span>`;
+  const up=c.upcoming.length?`<div class="up">${c.upcoming.map(r=>`<span class="d">${r.now?'Now':cycDate(r.start,r.end)}</span><span class="n${r.cls==='WT'?' wtrow':''}" title="${esc(r.name+' · '+cycDate(r.start,r.end))}">${esc(r.name)}</span>${tag(r.cls)}`).join('')}</div>`:'<div class="empty">No races scheduled yet.</div>';
+  const medal=['🥇','🥈','🥉'];
+  const res=c.results.map(r=>{
+    const pod=r.podium.map((p,i)=>`<span title="${esc(p.name)}">${medal[i]} ${i===0||p.nat==='USA'?`<b>${esc(surname(p.name))}</b>`:esc(surname(p.name))}${p.nat==='USA'?' 🇺🇸':''}</span>`).join(' · ');
+    const us=r.americans.length?`<div class="us">🇺🇸 ${r.americans.map(a=>`<b title="${esc(a.name)}">${esc(surname(a.name))}</b> ${ord(a.rank)}`).join(' · ')}</div>`:'';
+    return `<div class="res" title="${esc(r.depth?'Americans checked through '+ord(r.depth)+' place':'Full results not on Wikipedia yet')}"><div class="rn"><b>${esc(r.name)}</b><span>${cycDate(r.end,r.end)} · ${r.cls}</span></div><div class="pod">${pod}</div>${us}</div>`;
+  }).join('');
+  return `<section class="card cyc" aria-labelledby="h-cyc">${head}${up}${res}</section>`;
+}
+async function loadCycling(){ cache.cyc=await getJson('/api/sports?cycling=1').catch(()=>({error:'Cycling is unavailable right now'})); softRender(); }
 function sportsCard(){
   const s=cache.sports;
   let body='<div class="empty">Loading…</div>';
@@ -710,7 +745,7 @@ function render(){
   $('#c2').innerHTML=`${byCol(2)}${NEWS.map(n=>newsCard(n[0],n[1])).join('')}`;
   $('#c3').innerHTML=byCol(3);
   renderShop();
-  $('#c4').innerHTML=`${monCard()}${shopCard()}${calendarCard()}${sportsCard()}${c4}${addGroup}`;
+  $('#c4').innerHTML=`${monCard()}${shopCard()}${calendarCard()}${cyclingCard()}${sportsCard()}${c4}${addGroup}`;
   const bar=document.querySelector('.wtabs'), on=bar&&bar.querySelector('.wtab.on');
   if(on) bar.scrollLeft=Math.max(0,on.offsetLeft-bar.offsetLeft-bar.clientWidth/2+on.offsetWidth/2);
 }
@@ -973,6 +1008,7 @@ root.addEventListener('click',e=>{
   }
   else if(act==='retry-news'){ loadNews(b.dataset.key); return; }
   else if(act==='retry-sports'){ loadSports(); return; }
+  else if(act==='retry-cyc'){ cache.cyc=null; render(); loadCycling(); return; }
   else if(act==='retry-cal'){ cache.cal=null; render(); loadCalendar(); return; }
   else if(act==='delgroup'){
     if(b.dataset.armed!=='1'){ b.dataset.armed='1'; b.textContent='Tap again to delete'; return; }
@@ -1101,10 +1137,11 @@ migrate(); render(); loadWeather(); loadSports(); NEWS.forEach(n=>loadNews(n[0])
   for(const [el,on] of [[$('#tab-home'),!mon],[$('#tab-mon'),mon]]) on?el.setAttribute('aria-current','page'):el.removeAttribute('aria-current');
 }
 addEventListener('hashchange',showTab); showTab();
-checkAuth(); loadSnow(); loadMonitor();
+checkAuth(); loadSnow(); loadMonitor(); loadCycling();
 setInterval(loadSports,5*60*1000);
 setInterval(loadCalendar,10*60*1000);
 setInterval(loadSnow,15*60*1000);
+setInterval(loadCycling,3*3600*1000);
 setInterval(()=>loadMonitor(true),10*60*1000);
 setInterval(()=>checkShop(),30*60*1000);
 setInterval(()=>{ loadWeather(true); NEWS.forEach(n=>loadNews(n[0])); },15*60*1000);

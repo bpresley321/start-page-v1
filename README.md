@@ -83,3 +83,6 @@ Vercel's Hobby plan allows 12 serverless functions per deployment. Sign-in is on
 
 ### Unsplash option
 Settings → Header photo → **Unsplash photo of the day**, with your own search words (default "mountains landscape"). One landscape photo per search per day, cropped by Unsplash to banner shape; the caption credits the photographer and Unsplash and links to the photo (their attribution rules), and the page reports the use to Unsplash as their guidelines ask. Needs `UNSPLASH_ACCESS_KEY` in Vercel (free: unsplash.com/developers → New Application → Access Key). Served by the same function as the NASA picture (`/api/apod?source=unsplash`), so it doesn't add a function.
+
+## Cycling card
+Column 4, between Calendar and Sports. Men's road racing from Wikipedia (free, no key): the season pages "<year> UCI World Tour" (dates + podium) and "<year> UCI ProSeries" (dates + winner) for the next 4 races, and each finished race's own page for its final standings (top 10 on most pages; up to 30 read when listed), from which riders marked (USA) are shown. Served by `/api/sports?cycling=1` (lib/cycling.js), cached 3 hours. ProCyclingStats-based Apify scrapers were tried and are blocked (HTTP 403), so they are not used.
