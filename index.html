@@ -370,7 +370,7 @@ const $=s=>document.querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,9);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function L(t,u){return {id:uid(),t,u};}
-const NEWS=[['nyt','New York Times'],['txtribune','Texas Tribune'],['fwreport','Fort Worth Report']];
+const NEWS=[['nyt','New York Times'],['techmeme','Techmeme'],['txtribune','Texas Tribune'],['fwreport','Fort Worth Report']];
 const NEWS_LIMIT=5;
 
 function defaults(){

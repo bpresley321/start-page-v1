@@ -102,3 +102,16 @@ test('news: Texas Tribune feed (RSS with media namespace, CDATA, entities) parse
   assert.strictEqual(res.code, 200);
   assert.deepStrictEqual(res.body.items.map((i) => i.title), ['Texas A&M president’s plan', 'Second story']);
 });
+
+test('news: Techmeme feed (RSS with HTML descriptions) parses', async () => {
+  global.fetch = async (u) => {
+    assert.strictEqual(u, 'https://www.techmeme.com/feed.xml');
+    return { ok: true, text: async () => `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>Techmeme</title><link>https://www.techmeme.com/</link>
+<item><title>Apple announces new chips for its Mac lineup (Jane Doe/Bloomberg)</title><link>http://www.techmeme.com/261127/p12#a261127p12</link><description><![CDATA[<p><a href="https://x"><img src="x.jpg"></a></p><p>Jane Doe / <a href="https://bloomberg.com">Bloomberg</a>:<br><span>Apple announced …</span></p>]]></description><pubDate>Fri, 27 Nov 2026 21:30:01 -0500</pubDate><guid>http://www.techmeme.com/261127/p12#a261127p12</guid></item>
+<item><title>Startup raises $50M &amp; more (John Roe/TechCrunch)</title><link>http://www.techmeme.com/261127/p11#a261127p11</link></item></channel></rss>` };
+  };
+  const res = mkRes();
+  await require('../api/news')({ url: '/api/news?feed=techmeme' }, res);
+  assert.strictEqual(res.code, 200);
+  assert.deepStrictEqual(res.body.items.map((i) => i.title), ['Apple announces new chips for its Mac lineup (Jane Doe/Bloomberg)', 'Startup raises $50M & more (John Roe/TechCrunch)']);
+});
